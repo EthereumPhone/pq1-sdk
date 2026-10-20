@@ -1,0 +1,31 @@
+{
+  "name": "pq1-sdk-monorepo",
+  "private": true,
+  "description": "SDK for adding the PQ1 post-quantum hardware wallet to browser-extension wallets",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build -w pq1-sdk && npm run build -w mv3-wallet-example",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "npm run test --workspaces --if-present",
+    "check:package": "npm run check:package -w pq1-sdk",
+    "docs:api": "npm run docs:api -w pq1-sdk"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.6.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.0"
+  }
+}

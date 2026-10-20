@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "PQ1 Example Wallet",
+  "description": "A minimal wallet for the PQ1 post-quantum hardware wallet, built with pq1-sdk. For development only.",
+  "version": "0.0.1",
+  "minimum_chrome_version": "117",
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "PQ1 Example Wallet" },
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["contentscript.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["inpage.js"], "matches": ["http://*/*", "https://*/*"], "use_dynamic_url": false }
+  ]
+}

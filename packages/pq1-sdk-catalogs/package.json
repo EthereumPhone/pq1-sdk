@@ -1,0 +1,32 @@
+{
+  "name": "pq1-sdk-catalogs",
+  "version": "0.1.0",
+  "description": "Clear-signing catalogs for the PQ1 hardware wallet (tokens, address names, function names, ERC-7730 descriptors), matching the roots in its firmware",
+  "license": "MIT",
+  "author": "Freedom Factory",
+  "type": "module",
+  "keywords": ["pq1", "hardware-wallet", "clear-signing", "erc-7730", "pq1-sdk"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EthereumPhone/pq1-sdk.git",
+    "directory": "packages/pq1-sdk-catalogs"
+  },
+  "sideEffects": false,
+  "main": "./index.cjs",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "import": { "types": "./index.d.ts", "default": "./index.js" },
+      "require": { "types": "./index.d.cts", "default": "./index.cjs" }
+    },
+    "./manifest.json": "./manifest.json",
+    "./data/*": "./data/*",
+    "./package.json": "./package.json"
+  },
+  "files": ["data", "index.js", "index.cjs", "index.d.ts", "index.d.cts", "manifest.json", "README.md", "LICENSE"],
+  "scripts": {
+    "sync": "node scripts/sync-from-firmware.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

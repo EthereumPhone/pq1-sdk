@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Review request</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <h1 id="title">Review request</h1>
+      <p class="muted"><span id="origin"></span> · <span id="chain"></span></p>
+      <p class="muted">Account <code id="account"></code></p>
+      <pre id="details"></pre>
+      <p id="fee" hidden></p>
+      <p id="deploy" class="muted" hidden>
+        This is the first transaction from this account on this network, so it also sets up the
+        account. The fee is higher this once.
+      </p>
+      <p class="muted" id="device-note" hidden>
+        After you approve, check the details on your PQ1's screen and confirm there.
+      </p>
+      <div class="row">
+        <button id="reject">Reject</button>
+        <button id="approve" class="primary">Approve</button>
+      </div>
+    </main>
+    <script src="approve.js"></script>
+  </body>
+</html>

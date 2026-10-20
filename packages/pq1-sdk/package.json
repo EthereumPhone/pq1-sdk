@@ -1,0 +1,154 @@
+{
+  "name": "pq1-sdk",
+  "version": "0.1.0",
+  "description": "Add the PQ1 post-quantum hardware wallet (SPHINCS+, WebHID, ERC-4337) to your browser-extension wallet",
+  "license": "MIT",
+  "author": "Freedom Factory",
+  "type": "module",
+  "keywords": [
+    "pq1",
+    "hardware-wallet",
+    "post-quantum",
+    "sphincs",
+    "webhid",
+    "erc-4337",
+    "account-abstraction",
+    "wallet",
+    "browser-extension",
+    "ethereum"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EthereumPhone/pq1-sdk.git",
+    "directory": "packages/pq1-sdk"
+  },
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./transport": {
+      "import": {
+        "types": "./dist/transport.d.ts",
+        "default": "./dist/transport.js"
+      },
+      "require": {
+        "types": "./dist/transport.d.cts",
+        "default": "./dist/transport.cjs"
+      }
+    },
+    "./aa": {
+      "import": {
+        "types": "./dist/aa.d.ts",
+        "default": "./dist/aa.js"
+      },
+      "require": {
+        "types": "./dist/aa.d.cts",
+        "default": "./dist/aa.cjs"
+      }
+    },
+    "./clear-signing": {
+      "import": {
+        "types": "./dist/clear-signing.d.ts",
+        "default": "./dist/clear-signing.js"
+      },
+      "require": {
+        "types": "./dist/clear-signing.d.cts",
+        "default": "./dist/clear-signing.cjs"
+      }
+    },
+    "./provider": {
+      "import": {
+        "types": "./dist/provider.d.ts",
+        "default": "./dist/provider.js"
+      },
+      "require": {
+        "types": "./dist/provider.d.cts",
+        "default": "./dist/provider.cjs"
+      }
+    },
+    "./extension": {
+      "import": {
+        "types": "./dist/extension.d.ts",
+        "default": "./dist/extension.js"
+      },
+      "require": {
+        "types": "./dist/extension.d.cts",
+        "default": "./dist/extension.cjs"
+      }
+    },
+    "./testing": {
+      "import": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
+      },
+      "require": {
+        "types": "./dist/testing.d.cts",
+        "default": "./dist/testing.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "transport": [
+        "./dist/transport.d.ts"
+      ],
+      "aa": [
+        "./dist/aa.d.ts"
+      ],
+      "clear-signing": [
+        "./dist/clear-signing.d.ts"
+      ],
+      "provider": [
+        "./dist/provider.d.ts"
+      ],
+      "extension": [
+        "./dist/extension.d.ts"
+      ],
+      "testing": [
+        "./dist/testing.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "docs:api": "typedoc",
+    "check:package": "publint && attw --pack ."
+  },
+  "peerDependencies": {
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.0",
+    "@types/chrome": "^0.0.332",
+    "@types/node": "^24.0.0",
+    "@types/w3c-web-hid": "^1.0.6",
+    "publint": "^0.3.0",
+    "tsup": "^8.5.0",
+    "typedoc": "^0.28.0",
+    "viem": "^2.45.0",
+    "vitest": "^3.2.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

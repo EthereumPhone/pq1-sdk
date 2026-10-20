@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["chrome", "w3c-web-hid"],
+    "noEmit": true,
+    "paths": {
+      "pq1-sdk": ["../../packages/pq1-sdk/src/index.ts"],
+      "pq1-sdk/*": ["../../packages/pq1-sdk/src/*/index.ts", "../../packages/pq1-sdk/src/*.ts"]
+    }
+  },
+  "include": ["src"]
+}

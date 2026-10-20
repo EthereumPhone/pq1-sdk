@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run check:package
+      - name: Package size
+        run: |
+          cd packages/pq1-sdk
+          npm pack --dry-run --json | node -e '
+            const [p] = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            console.log(`pq1-sdk: ${p.size} bytes packed, ${p.files.length} files`);
+            if (p.files.some((f) => f.path.endsWith(".bin"))) throw new Error("catalog files leaked into pq1-sdk");
+          '
+      - name: Example smoke test
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:smoke -w mv3-wallet-example

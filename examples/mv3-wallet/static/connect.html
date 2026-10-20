@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PQ1 Example Wallet</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>PQ1 Example Wallet</h1>
+      <p class="muted">Plug in your PQ1 with the USB cable and unlock it.</p>
+      <p id="unsupported" class="error" hidden></p>
+      <button id="connect" class="primary">Connect PQ1</button>
+      <section id="accounts" hidden>
+        <h2>Choose an account</h2>
+        <ul id="account-list"></ul>
+      </section>
+      <p id="status" class="muted"></p>
+      <p id="error" class="error"></p>
+    </main>
+    <script src="connect.js"></script>
+  </body>
+</html>

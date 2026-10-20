@@ -1,0 +1,9 @@
+node_modules
+dist
+docs/api
+*.tgz
+.env
+examples/*/build
+test-results
+playwright-report
+.chrome-profile

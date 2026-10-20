@@ -1,0 +1,30 @@
+{
+  "firmwareRepo": "https://github.com/EthereumPhone/PQ1",
+  "firmwareCommit": "8a3fb4b3db9eb3de97c65e4399cbf3d157e3c103",
+  "catalogs": {
+    "erc20": {
+      "file": "erc20_db.bin",
+      "size": 9609114,
+      "sha256": "2567e2bed864d22696d89202fdfd6776e94d8dfbb9609b5be02548791cc4555d",
+      "merkleRoot": "0xc435c576df0aa21956c5add530563780d2d878d115b4523ea84d9834e55bf203"
+    },
+    "names": {
+      "file": "names_db.bin",
+      "size": 104836,
+      "sha256": "94f587e29e2a7a141692516b8f35ee8c8877d6146745a23116f64d2c2963dd7a",
+      "merkleRoot": "0x5320d4c40deb7aeeffd3ae9b995cc1fc1818df0341341f682f208eff5f1d6abc"
+    },
+    "selectors": {
+      "file": "selectors_db.bin",
+      "size": 775486,
+      "sha256": "6d30337d745e57aead0cb7df1795bac98eb1d45493963b9851f61aee51e48643",
+      "merkleRoot": "0x751caf5205a4ff5901ab6478af91ff36338f874b868378c610b693947456e46a"
+    },
+    "erc7730": {
+      "file": "erc7730_db.bin",
+      "size": 330976,
+      "sha256": "551d620f6a2cda7c2963070119ee221c2bc0f4196d4c2e85e0bb7c6cd57e17bf",
+      "merkleRoot": "0x8c3dc4b2b1789106a1043aed08114b7827d56052dd920eb0dd6671a84db643e6"
+    }
+  }
+}

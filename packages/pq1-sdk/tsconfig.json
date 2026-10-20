@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["w3c-web-hid", "chrome", "node", "vitest/globals"],
+    "noEmit": true
+  },
+  "include": ["src", "test", "*.config.ts"]
+}

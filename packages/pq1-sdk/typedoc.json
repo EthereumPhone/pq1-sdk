@@ -1,0 +1,25 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/index.ts",
+    "src/transport/index.ts",
+    "src/aa/index.ts",
+    "src/clear-signing.ts",
+    "src/provider/index.ts",
+    "src/extension/index.ts",
+    "src/testing/index.ts"
+  ],
+  "out": "../../docs/api",
+  "name": "pq1-sdk",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "sort": [
+    "source-order"
+  ],
+  "validation": {
+    "notExported": false,
+    "invalidLink": true,
+    "notDocumented": false
+  }
+}
