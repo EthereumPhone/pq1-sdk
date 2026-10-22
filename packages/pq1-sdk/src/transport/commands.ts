@@ -12,6 +12,8 @@ import {
   INS_UNLOCK,
   isAccountIndex,
   isSlotIndex,
+  MAX_TX_LEN,
+  maxCallDataLen,
   OFFCHAIN_SYNC_INPUT_LEN,
   PQ_INIT_CODE_LEN,
   SW_CONDITIONS_NOT_SATISFIED,
@@ -237,9 +239,27 @@ export class DeviceCommands {
     return initCode
   }
 
+  /** This device's per-call data cap (`maxCallDataLen` of its capability
+   *  bits), refusing first, with an "update your PQ1" error, a call the
+   *  current firmware would take but this device's firmware would not. Older
+   *  firmware refuses such a call with a generic status, so the bit is the
+   *  only safe signal; never send it and read the error. */
+  private async callDataCap(calls: readonly { data?: Uint8Array }[]): Promise<number> {
+    const cap = maxCallDataLen(await this.getCapabilities())
+    const longest = Math.max(0, ...calls.map((call) => call.data?.length ?? 0))
+    if (longest > cap && longest <= MAX_TX_LEN) {
+      throw new DeviceError(
+        `call data of ${longest} bytes needs PQ1 firmware that reports CAP_SIGN_USEROP_DATA_8K; this device takes ${cap}`,
+        undefined,
+        'outdated'
+      )
+    }
+    return cap
+  }
+
   /** Sign a single-call UserOp after the user confirms it on the device. */
   async signUserOp(params: SignRequestParams): Promise<SignBundle> {
-    const payload = buildSignPayload(params)
+    const payload = buildSignPayload(params, await this.callDataCap([params]))
     return this.withLockDetection(async () => {
       const r = await this.t.sendChainedApdu(INS_SIGN_USEROP, payload)
       expectSignOk(r.sw, 'SIGN_USEROP')
@@ -265,7 +285,7 @@ export class DeviceCommands {
         'outdated'
       )
     }
-    const payload = buildSignBatchPayload(params)
+    const payload = buildSignBatchPayload(params, await this.callDataCap(params.calls))
     return this.withLockDetection(async () => {
       const r = await this.t.sendChainedApdu(INS_SIGN_USEROP_BATCH, payload)
       expectSignOk(r.sw, 'SIGN_USEROP_BATCH')

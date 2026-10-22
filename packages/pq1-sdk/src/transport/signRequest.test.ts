@@ -497,3 +497,33 @@ describe('buildSignBatchPayload downgrade gates', () => {
     ])
   })
 })
+
+describe('call-data caps (2026-10-22: 8192 per call, 16,384 per batch)', () => {
+  const callOf = (bytes: number) => baseParams(OTHER_TO, new Uint8Array(bytes).fill(0xab))
+
+  it('defaults to the 4096-byte cap every firmware accepts', () => {
+    expect(() => buildSignPayload(callOf(4096))).not.toThrow()
+    expect(() => buildSignPayload(callOf(4097))).toThrow(/call data too long \(4097 > 4096\)/)
+  })
+
+  it('takes up to the cap the caller passes for the device', () => {
+    expect(() => buildSignPayload(callOf(8192), 8192)).not.toThrow()
+    expect(() => buildSignPayload(callOf(8193), 8192)).toThrow(/8193 > 8192/)
+    // data_len is a u16 on the wire: 8192 is written as 0x2000.
+    const payload = buildSignPayload(callOf(5050), 8192)
+    expect((payload[328]! << 8) | payload[329]!).toBe(5050)
+  })
+
+  it('caps a batch at 16,384 bytes of call data in total', () => {
+    const batch = (...sizes: number[]) => ({
+      ...callOf(0),
+      calls: sizes.map((n) => ({ to: OTHER_TO, value: 0n, data: new Uint8Array(n) }))
+    })
+    expect(() => buildSignBatchPayload(batch(8192, 8192), 8192)).not.toThrow()
+    expect(() => buildSignBatchPayload(batch(8192, 8192, 1), 8192)).toThrow(
+      /16385 bytes of call data, over the cap of 16384/
+    )
+    // Without the device's cap, a 5,050-byte member is refused.
+    expect(() => buildSignBatchPayload(batch(68, 5050))).toThrow(/5050 > 4096/)
+  })
+})

@@ -10,7 +10,7 @@
 // `approveHash` or a CoW `setPreSignature` without them, so failing to
 // build one refuses the request with a `Pq1Error` first.
 
-import { MAX_TX_LEN } from '../config'
+import { SAFE_INNER_DATA_MAX_LEN } from '../config'
 import type { Pq1Context } from '../context'
 import { isCowPresignClaim } from '../cowswap/calldata'
 import { tryBuildCowOrderBundle } from '../cowswap/orderBundle'
@@ -359,10 +359,10 @@ export async function buildOffchainSafeTxSections(
   safe: `0x${string}`,
   inner: SafeTxInnerCall
 ): Promise<{ erc20Bundle?: Uint8Array; cowOrderBundle?: Uint8Array; nameBundles: Uint8Array[] }> {
-  if (inner.data.length > MAX_TX_LEN) {
+  if (inner.data.length > SAFE_INNER_DATA_MAX_LEN) {
     throw new Pq1Error(
       'too-large',
-      `SafeTx data of ${inner.data.length} bytes > MAX_TX_LEN (${MAX_TX_LEN})`
+      `SafeTx data of ${inner.data.length} bytes > SAFE_INNER_DATA_MAX_LEN (${SAFE_INNER_DATA_MAX_LEN})`
     )
   }
   try {

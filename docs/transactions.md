@@ -59,13 +59,15 @@ When the device's off-chain signature count is behind the wallet's, it first ask
 | Limit | Value | Error if exceeded |
 | --- | --- | --- |
 | Calls per transaction | 4 (`MAX_BATCH_TXS`) | `too-large`, "A PQ1 can approve up to 4 actions in one transaction…" |
-| Call data per call | 4,096 bytes (`MAX_TX_LEN`) | `too-large` |
+| Call data per call | 8,192 bytes (`MAX_TX_LEN`) on firmware with `CAP_SIGN_USEROP_DATA_8K`; 4,096 (`MAX_TX_LEN_LEGACY`) on older firmware | `too-large` over 8,192; `outdated` over 4,096 on older firmware (checked when signing) |
+| Call data per transaction, summed | 16,384 bytes (`MAX_BATCH_CALL_DATA_TOTAL_LEN`) | `too-large` |
+| A Safe `execTransaction` call | 4,096 bytes (`EXEC_TRANSACTION_MAX_CALLDATA_LEN`) | `too-large` |
 | Contract creation (a call without `to`) | not possible: the wallet has no CREATE path | `invalid-request` |
 | Empty call list | not allowed | `invalid-request` |
 | Fee payment | ETH, from the account itself; no paymasters | the bundler rejects with `AA21` if the balance is too low |
 | Chains | the wallet's `chains` (default `PQ1_SUPPORTED_CHAIN_IDS`: 1, 8453, 84532) | `unsupported-network` |
 
-All of these are checked before any device or network work. Batches of two or more calls need firmware protocol `0x0200` or later (code `outdated` otherwise).
+All of these are checked before any device or network work, except the older-firmware call-data cap, which needs the device's capability bits and is checked just before signing (still before anything reaches the device). Batches of two or more calls need firmware protocol `0x0200` or later (code `outdated` otherwise).
 
 Some calls need extra data the SDK fetches, and are refused without it, because the device would refuse them anyway: a Safe `approveHash` needs the Safe transaction it approves (pass `safeTxService`), and a CoW Protocol `setPreSignature` needs the order from the CoW API. See [Clear signing](./clear-signing.md).
 

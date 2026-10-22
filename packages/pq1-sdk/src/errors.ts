@@ -36,7 +36,10 @@ export type DeviceErrorCode =
  *    mismatch, never the user's fault.
  *  - `wrong-device`: the connected PQ1 isn't the one the account belongs to.
  *  - `unsupported-network`: the PQ1 contracts aren't available on the chain.
- *  - `too-large`: the request carries more data than the device can show.
+ *  - `too-large`: the request carries more data than the PQ1 can sign (one
+ *    call over 8192 bytes, a batch over 16,384, a Safe transaction over
+ *    4096). Data the current firmware takes but the connected device's older
+ *    firmware does not is `outdated` instead.
  *  - `cannot-display`: the SDK refused the request before the device saw it,
  *    because the device would need data the SDK couldn't get (a CoW order,
  *    a Safe transaction) or would refuse it anyway.
@@ -89,7 +92,7 @@ export const PQ1_ERROR_MESSAGES: Readonly<Record<Pq1ErrorCode, string>> = {
   'unsupported-network':
     "PQ1 accounts aren't available on this network. Switch to a network that supports PQ1 and try again.",
   'too-large':
-    "This request is too large for the PQ1 to show on its screen, so it can't sign it. Nothing was signed or sent.",
+    'This request carries more data than a PQ1 can sign. Try a simpler route or smaller parts. Nothing was signed or sent.',
   'cannot-display':
     "The PQ1 can't show you all the details of this request, so it won't be signed. Nothing was signed or sent.",
   'firmware-mismatch':

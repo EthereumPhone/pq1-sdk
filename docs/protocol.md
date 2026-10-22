@@ -72,7 +72,7 @@ Retired values return `6D00`: `0x20`, `0x21`, `0x31`, `0x40`, `0x41`, `0x50`.
 | 36 | 2 | `ep_version` = 0x0006 (EntryPoint v0.6) |
 | 38 | 2 | `wrapper_overhead` = 96 |
 
-Capability bits: bit 0 `CAP_SIGN_USEROP`; bit 1 retired; bit 2 `CAP_ERC7730_PROOF_SET` (two-descriptor envelope, not built by the SDK); bit 3 `CAP_OFFCHAIN_SAFE_TX`; bit 4 `CAP_OFFCHAIN_COW_ORDER`. Current firmware reports `0x1D`.
+Capability bits: bit 0 `CAP_SIGN_USEROP`; bit 1 retired; bit 2 `CAP_ERC7730_PROOF_SET` (two-descriptor envelope, not built by the SDK); bit 3 `CAP_OFFCHAIN_SAFE_TX`; bit 4 `CAP_OFFCHAIN_COW_ORDER`; bit 5 `CAP_SIGN_USEROP_DATA_8K` (calls of up to 8192 bytes of data, see below). Current firmware reports `0x3D`.
 
 ### GET_STATUS
 
@@ -91,7 +91,7 @@ chain_id u64 BE ‖ flags u32 BE ‖ sender (20) ‖ entry_point (20)
 
 Flags: bit 31 `FLAG_INCLUDE_INIT_CODE` (first deployment; slot must be 0), bit 30 `FLAG_REGISTER_SLOT` (slot rotation, protocol ≥ 0x0203; not used by the SDK), bits 29..22 account index, bits 21..0 slot index. `sender` must equal the device's derived address for the account.
 
-Then the call: `to (20) ‖ value u256 BE ‖ data_len u16 BE ‖ data (≤ 4096)`.
+Then the call: `to (20) ‖ value u256 BE ‖ data_len u16 BE ‖ data (≤ 8192 with capability bit 5, else ≤ 4096)`. Firmware without bit 5 refuses a longer call with a generic status (`0x6F00`), so gate on the bit, never on the error.
 
 Then up to seven positional, u16-length-prefixed trailer slots, in this order: erc20, reserved (must be empty), CoW order, safe_v1, curated selector, self-attested selector, ERC-7730. Trailing empty slots may be left out. Name bundles follow as `[u8 count (1-4)]` and u16-length-prefixed bundles; if any are present, all seven slots must be written out first.
 
@@ -184,7 +184,9 @@ How the SDK maps these to error codes is in [errors.md](errors.md#device-status-
 | Data per APDU / per reply chunk | 255 / 253 bytes |
 | Reassembled APDU | 4096 bytes |
 | Calls per UserOp | 4 |
-| Calldata per call | 4096 bytes |
+| Calldata per call | 8192 bytes with `CAP_SIGN_USEROP_DATA_8K`, else 4096 |
+| Calldata per batch, summed | 16,384 bytes |
+| Safe inner data (`safe_v1`, off-chain SafeTx, `execTransaction` call) | 4096 bytes |
 | Name bundles per request | 4 |
 | Trailers per batch / total bytes | 32 / 24,576 |
 | Sign reply | 12,620 bytes (0x0203) |

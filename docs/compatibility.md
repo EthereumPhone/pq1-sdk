@@ -18,6 +18,7 @@ The SDK was built and tested against firmware [`EthereumPhone/PQ1@8a3fb4b3`](htt
 | `CAP_OFFCHAIN_SAFE_TX` (bit 3) | Safe `SafeTx` typed data shown on the device; without it, signed as a blind hash |
 | `CAP_OFFCHAIN_COW_ORDER` (bit 4) | CoW `Order` typed data shown on the device; without it, signed as a blind hash |
 | `CAP_ERC7730_PROOF_SET` (bit 2) | Not used: the SDK sends single ERC-7730 bundles |
+| `CAP_SIGN_USEROP_DATA_8K` (bit 5) | Calls of up to 8192 bytes of data (e.g. Uniswap Universal Router swaps); without it the SDK refuses a call over 4096 bytes with `outdated` before sending it |
 
 ## Catalogs
 

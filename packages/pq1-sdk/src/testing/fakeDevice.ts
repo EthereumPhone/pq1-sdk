@@ -10,6 +10,10 @@ import { keccak256, toBytes } from 'viem'
 import {
   CAP_OFFCHAIN_COW_ORDER,
   CAP_OFFCHAIN_SAFE_TX,
+  CAP_SIGN_USEROP_DATA_8K,
+  maxCallDataLen,
+  MAX_BATCH_CALL_DATA_TOTAL_LEN,
+  SW_INTERNAL_ERROR,
   C10_SIG_LEN,
   CHANNEL_ID,
   ERC6492_WRAPPED_BLOB_LEN,
@@ -66,7 +70,10 @@ export type FakePq1DeviceOptions = {
   locked?: boolean
   /** Protocol version reported by GET_DEVICE_INFO. Default 0x0203. */
   protocolVersion?: number
-  /** Capability bits. Default: Safe and CoW off-chain screens. */
+  /** Capability bits. Default: what current firmware reports — Safe and CoW
+   *  off-chain screens and 8 KB calls (`CAP_SIGN_USEROP_DATA_8K`). Clear that
+   *  bit to act like older firmware, which refuses a call over 4096 bytes
+   *  with a generic error. */
   capabilities?: number
 }
 
@@ -143,7 +150,9 @@ export class FakePq1Device {
     this.seed = options.seed ?? 'pq1-fake'
     this.locked = options.locked ?? false
     this.protocolVersion = options.protocolVersion ?? 0x0203
-    this.capabilities = options.capabilities ?? 0b1 | CAP_OFFCHAIN_SAFE_TX | CAP_OFFCHAIN_COW_ORDER
+    this.capabilities =
+      options.capabilities ??
+      0b1 | CAP_OFFCHAIN_SAFE_TX | CAP_OFFCHAIN_COW_ORDER | CAP_SIGN_USEROP_DATA_8K
   }
 
   // ── What the fake derives ─────────────────────────────────────────
@@ -334,6 +343,9 @@ export class FakePq1Device {
       }
       case INS_SIGN_USEROP:
       case INS_SIGN_USEROP_BATCH:
+        // Like the firmware: an over-cap call is refused with a generic
+        // status before any screen, so the host must gate on the bit.
+        if (!this.callDataFits(ins, payload)) return { sw: SW_INTERNAL_ERROR }
         if (this.takeRejection()) return { sw: SW_SECURITY_CONDITION }
         return { data: this.signUserOp(payload), sw: SW_OK }
       case INS_SIGN_OFFCHAIN:
@@ -342,6 +354,28 @@ export class FakePq1Device {
       default:
         return { sw: SW_INS_NOT_SUPPORTED }
     }
+  }
+
+  /** The firmware's call-data caps for this fake's capability bits: per
+   *  call, and summed over a batch. */
+  private callDataFits(ins: number, payload: Uint8Array): boolean {
+    const cap = maxCallDataLen(this.capabilities)
+    if (ins === INS_SIGN_USEROP) {
+      const dataLen = payload.length >= 330 ? (payload[328]! << 8) | payload[329]! : 0
+      return dataLen <= cap
+    }
+    // SIGN_USEROP_BATCH: UserOp header (276), wire version, call count, calls.
+    let off = 278
+    const count = payload[off - 1] ?? 0
+    let total = 0
+    for (let i = 0; i < count; i++) {
+      off += 20 + 32
+      const dataLen = (payload[off]! << 8) | payload[off + 1]!
+      off += 2 + dataLen
+      total += dataLen
+      if (dataLen > cap || total > MAX_BATCH_CALL_DATA_TOTAL_LEN) return false
+    }
+    return true
   }
 
   private takeRejection(): boolean {

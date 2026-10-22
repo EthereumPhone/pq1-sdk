@@ -69,8 +69,20 @@ export const isSlotIndex = (n: number): boolean =>
   Number.isInteger(n) && n >= 0 && n <= MAX_SLOT_INDEX
 /** Calls one UserOp can carry. */
 export const MAX_BATCH_TXS = 4
-/** Longest calldata of one call. */
-export const MAX_TX_LEN = 4096
+/** Longest calldata of one call (a single call, or one call of a batch) on
+ *  firmware that reports `CAP_SIGN_USEROP_DATA_8K`. */
+export const MAX_TX_LEN = 8192
+/** Longest calldata of one call on firmware without that bit. The SDK never
+ *  sends such firmware more: it would refuse with a generic error. */
+export const MAX_TX_LEN_LEGACY = 4096
+/** Summed calldata of all calls in one batch, on every firmware. */
+export const MAX_BATCH_CALL_DATA_TOTAL_LEN = 16384
+/** Longest Safe transaction inner data: the `safe_v1` bundle's raw data and an
+ *  off-chain SafeTx's data. Stays 4096 when `MAX_TX_LEN` grew. */
+export const SAFE_INNER_DATA_MAX_LEN = 4096
+/** Longest `Safe.execTransaction(...)` call (selector `0x6a761202`) the device
+ *  signs as a Safe transaction; it refuses a longer one. */
+export const EXEC_TRANSACTION_MAX_CALLDATA_LEN = 4096
 
 // ── Signature and init-code sizes ───────────────────────────────────
 /** A raw SPHINCS+ signature. */
@@ -101,7 +113,7 @@ export const ERC7730_BUNDLE_MAX_LEN = 2 + 4096 + 4 + 4 + 32 * 32 // 5130
 /** The canonical Safe transaction fields (`safe/canonical.ts`). */
 export const SAFE_TX_CANONICAL_LEN = 281
 /** The Safe transaction bundle: canonical fields, u16 data length, data. */
-export const SAFE_TX_BUNDLE_MAX_LEN = SAFE_TX_CANONICAL_LEN + 2 + MAX_TX_LEN // 4379
+export const SAFE_TX_BUNDLE_MAX_LEN = SAFE_TX_CANONICAL_LEN + 2 + SAFE_INNER_DATA_MAX_LEN // 4379
 /** The canonical CoW order (`cowswap/canonical.ts`). */
 export const COW_ORDER_CANONICAL_LEN = 204
 /** The CoW order bundle: canonical order, then a u16-length-prefixed ERC-20
@@ -199,6 +211,15 @@ export const SIGN_OFFCHAIN_OUTPUT_LEN_COUNTERFACTUAL = 8 + ERC6492_WRAPPED_BLOB_
  *  only to a device that reports their bit, never as a retry. */
 export const CAP_OFFCHAIN_SAFE_TX = 1 << 3
 export const CAP_OFFCHAIN_COW_ORDER = 1 << 4
+/** The device takes calls of up to `MAX_TX_LEN` (8192) bytes of data. Without
+ *  it, `MAX_TX_LEN_LEGACY` (4096). */
+export const CAP_SIGN_USEROP_DATA_8K = 1 << 5
+
+/** Longest call data one call may carry on a device with these capability
+ *  bits. */
+export function maxCallDataLen(capabilities: number): number {
+  return capabilities & CAP_SIGN_USEROP_DATA_8K ? MAX_TX_LEN : MAX_TX_LEN_LEGACY
+}
 
 /** How long to wait for the device's reply. Commands that can wait for the
  *  user (PIN, sign confirmations, a signature-count update) get longer. */

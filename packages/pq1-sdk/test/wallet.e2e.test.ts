@@ -144,6 +144,105 @@ describe('createPq1Wallet', () => {
     expect(bundler.sent[0]!.op.initCode).toBe('0x')
   })
 
+  // Call-data caps (firmware of 2026-10-22: 8192 per call, bit 5).
+  const routerCall = (bytes: number): `0x${string}` => `0x3593564c${'ab'.repeat(bytes - 4)}` // Universal Router execute(...)
+  const ROUTER = '0x66a9893cc07d91d95644aedd05d03f95e1dba8af'
+  const PRE_8K_CAPABILITIES = 0b1 | (1 << 3) | (1 << 4)
+
+  it('signs a 5,050-byte call on firmware that takes 8 KB calls', async () => {
+    const { wallet, bundler } = setup({ deployed: true })
+    const account = await accountOf(wallet)
+    await wallet.sendTransaction({
+      account,
+      chainId: CHAIN_ID,
+      calls: [{ to: ROUTER, data: routerCall(5050) }],
+      fee: FEE
+    })
+    const { args } = decodeFunctionData({ abi: WALLET_ABI, data: bundler.sent[0]!.op.callData })
+    expect(args[4]).toBe(routerCall(5050))
+  })
+
+  it('asks for a PQ1 update instead of sending a 5,050-byte call to older firmware', async () => {
+    const fake = new FakePq1Device({ capabilities: PRE_8K_CAPABILITIES })
+    const { wallet, bundler } = setup({ fake, deployed: true })
+    const account = await accountOf(wallet)
+    await expect(
+      wallet.sendTransaction({
+        account,
+        chainId: CHAIN_ID,
+        calls: [{ to: ROUTER, data: routerCall(5050) }],
+        fee: FEE
+      })
+    ).rejects.toMatchObject({ code: 'outdated' })
+    expect(fake.commands.some((c) => c.ins === INS_SIGN_USEROP)).toBe(false)
+    expect(bundler.sent).toHaveLength(0)
+    // 4096 bytes still signs there.
+    await wallet.sendTransaction({
+      account,
+      chainId: CHAIN_ID,
+      calls: [{ to: ROUTER, data: routerCall(4096) }],
+      fee: FEE
+    })
+    expect(bundler.sent).toHaveLength(1)
+  })
+
+  it('refuses more than 8,192 bytes in one call before touching the PQ1', async () => {
+    const { wallet, fake, bundler } = setup({ deployed: true })
+    const account = await accountOf(wallet)
+    const result = wallet.sendTransaction({
+      account,
+      chainId: CHAIN_ID,
+      calls: [{ to: ROUTER, data: routerCall(8193) }],
+      fee: FEE
+    })
+    await expect(result).rejects.toMatchObject({ code: 'too-large' })
+    await expect(result).rejects.toHaveProperty('userMessage', expect.stringContaining('8,192'))
+    expect(fake.commands.some((c) => c.ins === INS_SIGN_USEROP)).toBe(false)
+    expect(bundler.sent).toHaveLength(0)
+  })
+
+  it('signs a batch up to 16,384 bytes of call data and refuses one byte more', async () => {
+    const { wallet, bundler } = setup({ deployed: true })
+    const account = await accountOf(wallet)
+    await wallet.sendTransaction({
+      account,
+      chainId: CHAIN_ID,
+      calls: [
+        { to: ROUTER, data: routerCall(8192) },
+        { to: ROUTER, data: routerCall(8192) }
+      ],
+      fee: FEE
+    })
+    expect(bundler.sent).toHaveLength(1)
+    await expect(
+      wallet.sendTransaction({
+        account,
+        chainId: CHAIN_ID,
+        calls: [
+          { to: ROUTER, data: routerCall(8192) },
+          { to: ROUTER, data: routerCall(8192) },
+          { to: RECIPIENT, data: '0x01' }
+        ],
+        fee: FEE
+      })
+    ).rejects.toMatchObject({ code: 'too-large' })
+    expect(bundler.sent).toHaveLength(1)
+  })
+
+  it('refuses a Safe execTransaction over 4096 bytes, which the PQ1 would refuse', async () => {
+    const { wallet, bundler } = setup({ deployed: true })
+    const account = await accountOf(wallet)
+    await expect(
+      wallet.sendTransaction({
+        account,
+        chainId: CHAIN_ID,
+        calls: [{ to: RECIPIENT, data: `0x6a761202${'00'.repeat(4096)}` }],
+        fee: FEE
+      })
+    ).rejects.toMatchObject({ code: 'too-large' })
+    expect(bundler.sent).toHaveLength(0)
+  })
+
   it('refuses to use a different PQ1 for an account, before anything is signed', async () => {
     const { wallet: walletA } = setup()
     const account = await accountOf(walletA)

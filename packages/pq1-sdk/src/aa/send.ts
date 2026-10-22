@@ -18,6 +18,8 @@ import {
   ENTRY_POINT_V06,
   ESTIMATE_PLACEHOLDER_GAS,
   FACTORY,
+  EXEC_TRANSACTION_MAX_CALLDATA_LEN,
+  MAX_BATCH_CALL_DATA_TOTAL_LEN,
   MAX_BATCH_TXS,
   MAX_TX_LEN,
   PQ1_SUPPORTED_CHAIN_IDS,
@@ -88,12 +90,43 @@ export function assertPq1CallCount(calls: readonly unknown[]): void {
   )
 }
 
-/** Refuse a call whose data is longer than the device takes for one call,
- *  with a message the user understands, before any device or network work. */
-function assertPq1CallDataFits(calls: readonly { data: `0x${string}` }[]): void {
-  const longest = Math.max(0, ...calls.map((call) => (call.data.length - 2) / 2))
-  if (longest <= MAX_TX_LEN) return
-  throw new Pq1Error('too-large', `call data of ${longest} bytes > MAX_TX_LEN (${MAX_TX_LEN})`)
+/** `Safe.execTransaction(...)`: the device signs it as a Safe transaction,
+ *  with its own, smaller data cap. */
+const EXEC_TRANSACTION_SELECTOR_HEX = '0x6a761202'
+
+const fmtBytes = (n: number): string => n.toLocaleString('en-US')
+
+/** Refuse call data no PQ1 firmware signs, with a message the user
+ *  understands, before any device or network work. The cap of the connected
+ *  device's firmware (4096 per call without `CAP_SIGN_USEROP_DATA_8K`) is
+ *  checked again when signing (`DeviceCommands.signUserOp`). */
+export function assertPq1CallDataFits(calls: readonly { data: `0x${string}` }[]): void {
+  const lengths = calls.map((call) => (call.data.length - 2) / 2)
+  const longest = Math.max(0, ...lengths)
+  if (longest > MAX_TX_LEN) {
+    throw userFacingError(
+      'too-large',
+      `This transaction carries more data than a PQ1 can sign (${fmtBytes(longest)} bytes in one action; the most is ${fmtBytes(MAX_TX_LEN)}). Try a simpler route or a smaller trade. Nothing was signed or sent.`,
+      `call data of ${longest} bytes > MAX_TX_LEN (${MAX_TX_LEN})`
+    )
+  }
+  const total = lengths.reduce((sum, n) => sum + n, 0)
+  if (total > MAX_BATCH_CALL_DATA_TOTAL_LEN) {
+    throw userFacingError(
+      'too-large',
+      `These actions carry ${fmtBytes(total)} bytes of data together, and a PQ1 can sign up to ${fmtBytes(MAX_BATCH_CALL_DATA_TOTAL_LEN)} in one transaction. Try again in smaller parts. Nothing was signed or sent.`,
+      `summed call data of ${total} bytes > MAX_BATCH_CALL_DATA_TOTAL_LEN (${MAX_BATCH_CALL_DATA_TOTAL_LEN})`
+    )
+  }
+  calls.forEach((call, i) => {
+    if (!call.data.toLowerCase().startsWith(EXEC_TRANSACTION_SELECTOR_HEX)) return
+    if (lengths[i]! <= EXEC_TRANSACTION_MAX_CALLDATA_LEN) return
+    throw userFacingError(
+      'too-large',
+      `This Safe transaction carries more data than a PQ1 can show (${fmtBytes(lengths[i]!)} bytes; the most is ${fmtBytes(EXEC_TRANSACTION_MAX_CALLDATA_LEN)}). Nothing was signed or sent.`,
+      `execTransaction call data of ${lengths[i]} bytes > EXEC_TRANSACTION_MAX_CALLDATA_LEN (${EXEC_TRANSACTION_MAX_CALLDATA_LEN})`
+    )
+  })
 }
 
 /** Refuse a chain the PQ1 contracts aren't deployed on. Without this guard
