@@ -24,7 +24,7 @@ import {
 } from '../erc20/detect'
 import { isErc20MethodCall } from '../erc20/selectors'
 import { buildErc7730BundleForCall } from '../erc7730/lookup'
-import { Pq1Error, userFacingError } from '../errors'
+import { safeTxTooLargeMessage, userFacingError } from '../errors'
 import {
   buildNameBundles,
   collectDisplayAddresses,
@@ -360,8 +360,9 @@ export async function buildOffchainSafeTxSections(
   inner: SafeTxInnerCall
 ): Promise<{ erc20Bundle?: Uint8Array; cowOrderBundle?: Uint8Array; nameBundles: Uint8Array[] }> {
   if (inner.data.length > SAFE_INNER_DATA_MAX_LEN) {
-    throw new Pq1Error(
+    throw userFacingError(
       'too-large',
+      safeTxTooLargeMessage(inner.data.length, SAFE_INNER_DATA_MAX_LEN),
       `SafeTx data of ${inner.data.length} bytes > SAFE_INNER_DATA_MAX_LEN (${SAFE_INNER_DATA_MAX_LEN})`
     )
   }

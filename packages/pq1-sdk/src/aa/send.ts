@@ -17,8 +17,8 @@
 import {
   ENTRY_POINT_V06,
   ESTIMATE_PLACEHOLDER_GAS,
-  FACTORY,
   EXEC_TRANSACTION_MAX_CALLDATA_LEN,
+  FACTORY,
   MAX_BATCH_CALL_DATA_TOTAL_LEN,
   MAX_BATCH_TXS,
   MAX_TX_LEN,
@@ -27,8 +27,15 @@ import {
   VERIFIER_STUB_RETURN_TRUE_CODE
 } from '../config'
 import type { Pq1Context } from '../context'
-import { Pq1Error, userFacingError } from '../errors'
+import {
+  batchDataTooLargeMessage,
+  callDataTooLargeMessage,
+  Pq1Error,
+  safeTxTooLargeMessage,
+  userFacingError
+} from '../errors'
 import type { ChainReader } from '../rpc'
+import { isSafeExecTransaction } from '../safe/execCalldata'
 import { hexToBytes } from '../transport/bytes'
 import type { DeviceCommands } from '../transport/commands'
 import type { SignBundle } from '../transport/signResponse'
@@ -90,43 +97,40 @@ export function assertPq1CallCount(calls: readonly unknown[]): void {
   )
 }
 
-/** `Safe.execTransaction(...)`: the device signs it as a Safe transaction,
- *  with its own, smaller data cap. */
-const EXEC_TRANSACTION_SELECTOR_HEX = '0x6a761202'
-
-const fmtBytes = (n: number): string => n.toLocaleString('en-US')
-
-/** Refuse call data no PQ1 firmware signs, with a message the user
- *  understands, before any device or network work. The cap of the connected
- *  device's firmware (4096 per call without `CAP_SIGN_USEROP_DATA_8K`) is
- *  checked again when signing (`DeviceCommands.signUserOp`). */
+/** Refuse calldata that no PQ1 firmware signs, with a message the user
+ *  understands, before any device or network work starts. A call over the
+ *  connected device's own cap (`MAX_TX_LEN_LEGACY` on firmware without
+ *  `CAP_SIGN_USEROP_DATA_8K`) is refused when signing, by
+ *  `DeviceCommands.signUserOp`, with an "update your PQ1" error. */
 export function assertPq1CallDataFits(calls: readonly { data: `0x${string}` }[]): void {
-  const lengths = calls.map((call) => (call.data.length - 2) / 2)
-  const longest = Math.max(0, ...lengths)
+  const callData = calls.map((call) => hexToBytes(call.data))
+  const longest = Math.max(0, ...callData.map((data) => data.length))
   if (longest > MAX_TX_LEN) {
     throw userFacingError(
       'too-large',
-      `This transaction carries more data than a PQ1 can sign (${fmtBytes(longest)} bytes in one action; the most is ${fmtBytes(MAX_TX_LEN)}). Try a simpler route or a smaller trade. Nothing was signed or sent.`,
+      callDataTooLargeMessage(longest, MAX_TX_LEN),
       `call data of ${longest} bytes > MAX_TX_LEN (${MAX_TX_LEN})`
     )
   }
-  const total = lengths.reduce((sum, n) => sum + n, 0)
+  const total = callData.reduce((sum, data) => sum + data.length, 0)
   if (total > MAX_BATCH_CALL_DATA_TOTAL_LEN) {
     throw userFacingError(
       'too-large',
-      `These actions carry ${fmtBytes(total)} bytes of data together, and a PQ1 can sign up to ${fmtBytes(MAX_BATCH_CALL_DATA_TOTAL_LEN)} in one transaction. Try again in smaller parts. Nothing was signed or sent.`,
+      batchDataTooLargeMessage(total, MAX_BATCH_CALL_DATA_TOTAL_LEN),
       `summed call data of ${total} bytes > MAX_BATCH_CALL_DATA_TOTAL_LEN (${MAX_BATCH_CALL_DATA_TOTAL_LEN})`
     )
   }
-  calls.forEach((call, i) => {
-    if (!call.data.toLowerCase().startsWith(EXEC_TRANSACTION_SELECTOR_HEX)) return
-    if (lengths[i]! <= EXEC_TRANSACTION_MAX_CALLDATA_LEN) return
+  const longestSafeTx = Math.max(
+    0,
+    ...callData.filter(isSafeExecTransaction).map((data) => data.length)
+  )
+  if (longestSafeTx > EXEC_TRANSACTION_MAX_CALLDATA_LEN) {
     throw userFacingError(
       'too-large',
-      `This Safe transaction carries more data than a PQ1 can show (${fmtBytes(lengths[i]!)} bytes; the most is ${fmtBytes(EXEC_TRANSACTION_MAX_CALLDATA_LEN)}). Nothing was signed or sent.`,
-      `execTransaction call data of ${lengths[i]} bytes > EXEC_TRANSACTION_MAX_CALLDATA_LEN (${EXEC_TRANSACTION_MAX_CALLDATA_LEN})`
+      safeTxTooLargeMessage(longestSafeTx, EXEC_TRANSACTION_MAX_CALLDATA_LEN),
+      `execTransaction call data of ${longestSafeTx} bytes > EXEC_TRANSACTION_MAX_CALLDATA_LEN (${EXEC_TRANSACTION_MAX_CALLDATA_LEN})`
     )
-  })
+  }
 }
 
 /** Refuse a chain the PQ1 contracts aren't deployed on. Without this guard

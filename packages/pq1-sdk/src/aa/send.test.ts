@@ -33,11 +33,61 @@ import {
 import { BundlerError, pimlicoBundler } from './bundler'
 import {
   assertPq1CallCount,
+  assertPq1CallDataFits,
   prepareTransaction,
   signPreparedTransaction,
   submitUserOperation
 } from './send'
 import type { UserOpJson } from './userop'
+
+describe('assertPq1CallDataFits', () => {
+  const UNIVERSAL_ROUTER_EXECUTE = '3593564c'
+  const SAFE_EXEC_TRANSACTION = '6a761202'
+  /** `bytes` bytes of calldata starting with `selector`. */
+  const callData = (bytes: number, selector = UNIVERSAL_ROUTER_EXECUTE): `0x${string}` =>
+    `0x${selector}${'ab'.repeat(bytes - selector.length / 2)}`
+  const refusalOf = (calls: { data: `0x${string}` }[]): Pq1Error | undefined => {
+    try {
+      assertPq1CallDataFits(calls)
+    } catch (e) {
+      return e as Pq1Error
+    }
+    return undefined
+  }
+
+  it('lets calls of up to 8,192 bytes through, alone or batched', () => {
+    expect(refusalOf([{ data: callData(5050) }])).toBeUndefined()
+    expect(refusalOf([{ data: callData(8192) }])).toBeUndefined()
+    expect(refusalOf([{ data: callData(8192) }, { data: callData(8192) }])).toBeUndefined()
+  })
+
+  it('refuses a call over 8,192 bytes in plain language', () => {
+    const refusal = refusalOf([{ data: callData(8193) }])
+    expect(refusal).toBeInstanceOf(Pq1Error)
+    expect(refusal!.code).toBe('too-large')
+    expect(refusal!.userMessage).toContain('8,193 bytes in one action, and the most is 8,192')
+    expect(refusal!.userMessage).not.toContain('MAX_TX_LEN')
+    expect(refusal!.message).toContain('MAX_TX_LEN')
+  })
+
+  it('refuses a batch whose calls carry over 16,384 bytes together', () => {
+    const refusal = refusalOf([
+      { data: callData(8192) },
+      { data: callData(8192) },
+      { data: '0x01' }
+    ])
+    expect(refusal).toBeInstanceOf(Pq1Error)
+    expect(refusal!.userMessage).toContain('16,385 bytes of data together')
+  })
+
+  it('keeps the 4,096-byte cap on a Safe execTransaction call', () => {
+    expect(refusalOf([{ data: callData(4096, SAFE_EXEC_TRANSACTION) }])).toBeUndefined()
+    const refusal = refusalOf([{ data: callData(4100, SAFE_EXEC_TRANSACTION) }])
+    expect(refusal).toBeInstanceOf(Pq1Error)
+    expect(refusal!.userMessage).toContain('This Safe transaction')
+    expect(refusal!.userMessage).toContain('4,100 bytes, and the most is 4,096')
+  })
+})
 
 describe('assertPq1CallCount', () => {
   it(`accepts up to ${MAX_BATCH_TXS} calls`, () => {

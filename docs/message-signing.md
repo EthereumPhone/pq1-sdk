@@ -50,18 +50,19 @@ The SDK takes the **first route that fits**:
 
 | # | Route | When | What the device shows |
 | --- | --- | --- | --- |
-| 1 | Native Safe / CoW screens | `primaryType` is a Safe `SafeTx` or a CoW Protocol `Order` with the exact canonical types, and the device reports the matching capability bit (`CAP_OFFCHAIN_SAFE_TX`, `CAP_OFFCHAIN_COW_ORDER`) | The Safe transaction or the order, decoded, with token amounts and names |
+| 1 | Native Safe / CoW / Permit2 screens | `primaryType` is a Safe `SafeTx`, a CoW Protocol `Order` or a Uniswap Permit2 permit without a witness (`PermitSingle`, `PermitBatch`, `PermitTransferFrom`, `PermitBatchTransferFrom`) with the exact canonical types, and the device reports the matching capability bit (`CAP_OFFCHAIN_SAFE_TX`, `CAP_OFFCHAIN_COW_ORDER`, `CAP_OFFCHAIN_PERMIT2`) | The Safe transaction, the order or the permit (spender, tokens, amounts, expiry), decoded, with token amounts and names |
 | 2 | ERC-7730 descriptor | The ERC-7730 catalog has a descriptor for `(chainId, verifyingContract)` and the type's hash, and the message has only fixed-size fields (`address`, `uintN`, `intN`, `bytesN`, `bool`) | Each field labelled the way the descriptor names it |
 | 3 | Blind hash | Anything else | The EIP-712 hash, behind a loud "BLIND" warning |
 
-The route is decided before anything is sent. **A request refused on one route is never retried on a weaker one**: a refused Safe transaction must not come back as a blind hash the user might approve without understanding it. The firmware requires this of every host (see [`usb-protocol-v2.md`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/docs/companion/usb-protocol-v2.md)). If the device refuses, the call rejects with code `sign-refused`, and the device screen says why.
+The route is decided before anything is sent. **A request refused on one route is never retried on a weaker one**: a refused Safe transaction must not come back as a blind hash the user might approve without understanding it. The firmware requires this of every host (see [`usb-protocol-v2.md`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/docs/companion/usb-protocol-v2.md)). If the device refuses, the call rejects with code `sign-refused`, and the device screen says why.
 
-Routes 1 and 2 need the catalogs (see [Clear signing](./clear-signing.md)). Without them, a Safe transaction still gets the native screen but shows raw token addresses and amounts, and ERC-7730 typed data falls back to the blind hash.
+Routes 1 and 2 need the catalogs (see [Clear signing](./clear-signing.md)). Without them, a Safe transaction or a permit still gets the native screen but shows raw token addresses and amounts, and ERC-7730 typed data falls back to the blind hash.
 
 The SDK refuses some typed data up front, in plain language, because the device or the verifier would refuse it anyway:
 
-- A Safe or CoW request whose domain `chainId` isn't the `chainId` you passed ("This signature request is for a different network…").
-- A Safe or CoW request from an account not yet deployed on that chain. Neither the Safe nor CoW Protocol unwraps ERC-6492 signatures, so the user must send one transaction from the account on that chain first.
+- A Safe, CoW or Permit2 request whose domain `chainId` isn't the `chainId` you passed ("This signature request is for a different network…").
+- A Safe, CoW or Permit2 request from an account not yet deployed on that chain. None of them unwraps ERC-6492 signatures (Permit2 checks a signer without code with `ecrecover`), so the user must send one transaction from the account on that chain first.
+- A permit the device would refuse: the same token named twice, more than six tokens, or a zero spender or token. It is refused with code `cannot-display` on every firmware, so a shape the device knows is never signed blind instead.
 
 ## Chain binding and signature formats
 
@@ -101,6 +102,6 @@ A PQ1 account can own a Safe. Its signatures for Safe transactions (route 1 abov
 ## Not supported
 
 - `eth_sign` (signing an arbitrary 32-byte hash on a dapp's behalf) is not offered. Reject it with EIP-1193 code `4200`, as the example wallet does.
-- Typed data with `string`, `bytes`, array or nested-struct fields (Permit2, for example) is not sent on the descriptor route; unless it is a Safe or CoW request, it is signed as its blind hash.
+- Typed data with `string`, `bytes`, array or nested-struct fields is not sent on the descriptor route; unless it is a Safe, CoW or Permit2 request, it is signed as its blind hash. UniswapX's witness permits (`PermitWitnessTransferFrom`) are among them.
 
 Next: [Clear signing](./clear-signing.md) · [dApp provider](./dapp-provider.md) · [Errors](./errors.md) · [Security](./security.md)

@@ -12,6 +12,26 @@ import {
 } from './errors'
 import { DeviceError } from './transport/hid'
 
+const isLetterOrDigit = (ch: string): boolean =>
+  ch.toLowerCase() !== ch.toUpperCase() || (ch >= '0' && ch <= '9')
+
+/** The words of `text`, split at anything that isn't a letter or a digit. */
+const wordsOf = (text: string): string[] =>
+  [...text]
+    .map((ch) => (isLetterOrDigit(ch) ? ch : ' '))
+    .join('')
+    .split(' ')
+    .filter((word) => word.length > 0)
+
+/** Protocol terms a user can't be expected to know: status words, APDUs,
+ *  UserOps, ERC numbers and hex values. */
+const isJargon = (word: string): boolean => {
+  const lower = word.toLowerCase()
+  return (
+    ['sw', 'apdu', 'userop'].includes(lower) || lower.startsWith('erc') || lower.startsWith('0x')
+  )
+}
+
 describe('Pq1Error', () => {
   it('keeps technical text in `message` and plain text in `userMessage`', () => {
     const e = new Pq1Error('locked', 'SW=0x6985 after GET_STATUS probe')
@@ -47,7 +67,7 @@ describe('Pq1Error', () => {
   it('has a message without jargon for every code', () => {
     for (const [code, text] of Object.entries(PQ1_ERROR_MESSAGES) as [Pq1ErrorCode, string][]) {
       expect(text.length, code).toBeGreaterThan(20)
-      expect(text, code).not.toMatch(/\b(SW|APDU|UserOp|ERC-?\d+|0x[0-9a-f]+)\b/i)
+      expect(wordsOf(text).filter(isJargon), code).toEqual([])
     }
   })
 })

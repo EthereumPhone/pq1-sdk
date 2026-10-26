@@ -7,7 +7,7 @@ The PQ1 holds only the Merkle root of each catalog in its firmware. When the SDK
 | File | Size | Contents |
 | --- | ---: | --- |
 | `data/erc20_db.bin` | 9.6 MB | Token name, symbol and decimals per (chain, contract) |
-| `data/names_db.bin` | 105 KB | Names of well-known contracts and addresses |
+| `data/names_db.bin` | 112 KB | Names of well-known contracts and addresses |
 | `data/selectors_db.bin` | 775 KB | Function signatures, shown for calls the device can't decode otherwise |
 | `data/erc7730_db.bin` | 331 KB | ERC-7730 clear-signing descriptors (365) |
 

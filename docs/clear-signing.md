@@ -19,7 +19,7 @@ They ship in the [`pq1-sdk-catalogs`](../packages/pq1-sdk-catalogs) package, unc
 | `CatalogName` | File | Size | Magic | Contents | Used for |
 | --- | --- | ---: | --- | --- | --- |
 | `erc20` | `erc20_db.bin` | 9.6 MB | `ERC2` | name, symbol, decimals per (chain, token) | "Send 25 USDC" instead of a raw amount |
-| `names` | `names_db.bin` | 105 KB | `NAMS` | names of well-known contracts and addresses | "Uniswap V3 Router" instead of hex |
+| `names` | `names_db.bin` | 112 KB | `NAMS` | names of well-known contracts and addresses | "Uniswap V3 Router" instead of hex |
 | `selectors` | `selectors_db.bin` | 775 KB | `SEL4` | function signatures | the function name on a call the device has no decoder for |
 | `erc7730` | `erc7730_db.bin` | 331 KB | `P730` | 365 compiled ERC-7730 descriptors | contract calls and EIP-712 typed data |
 
@@ -126,7 +126,7 @@ Catalogs change only with a firmware release that changes their roots. `pq1-sdk-
 ```json
 {
   "firmwareRepo": "https://github.com/EthereumPhone/PQ1",
-  "firmwareCommit": "8a3fb4b3db9eb3de97c65e4399cbf3d157e3c103",
+  "firmwareCommit": "0313a2eff47c10ea74855bdad86f597c74b1ab67",
   "catalogs": {
     "erc20": { "file": "erc20_db.bin", "size": 9609114, "sha256": "2567e2be…", "merkleRoot": "0xc435c576…" }
   }
@@ -137,7 +137,7 @@ To refresh for a new firmware release:
 
 1. Check out the firmware at the release commit.
 2. `npm run sync -w pq1-sdk-catalogs -- /path/to/PQ1` copies the four files from `tools/companion-stub/` and rewrites the manifest, reading each production root from `secure/src/db_roots.rs`.
-3. Rebuild `packages/pq1-sdk/src/erc7730/catalog.review.json` (the per-descriptor summary) from the firmware's [`secure/data/erc7730.review.txt`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/secure/data/erc7730.review.txt). This step is manual for now.
+3. Rebuild `packages/pq1-sdk/src/erc7730/catalog.review.json` (the per-descriptor summary) from the firmware's [`secure/data/erc7730.review.txt`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/secure/data/erc7730.review.txt). This step is manual for now.
 4. `npm test`. `db/catalogRoots.test.ts` proves an entry of every catalog to the manifest roots, `erc7730/ir.test.ts` walks every descriptor against the review file, and the catalogs package checks sizes and checksums.
 
 Ship catalogs and firmware support together: an old catalog against new firmware (or the reverse) fails every proof, and the device shows raw data.

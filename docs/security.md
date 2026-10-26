@@ -30,7 +30,7 @@ Typed data takes the strongest route the device supports: its own Safe/CoW scree
 
 ### Cache the init code
 
-To estimate gas for a wallet's first transaction, the SDK asks the device for the wallet's init code (GET_INIT_CODE). Each call makes the device sign with the wallet's **bootstrap key**, without asking the user. That key is a few-time hash-based signature key: its security margin shrinks with every signature it makes, and it can never be rotated, because the wallet's address depends on it. The firmware deliberately puts no counter or cap on this command (a cap could leave a device that refuses to deploy) and relies on the host to cache the result per account and chain until the wallet is deployed. The firmware's analysis rates this LOW: it is not a theft path, and the forgery work stays above 128 bits until about 99,000 bootstrap signatures under one key ([`docs/VULN-getinitcode-bootstrap-fewtime-oracle.md`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/docs/VULN-getinitcode-bootstrap-fewtime-oracle.md)).
+To estimate gas for a wallet's first transaction, the SDK asks the device for the wallet's init code (GET_INIT_CODE). Each call makes the device sign with the wallet's **bootstrap key**, without asking the user. That key is a few-time hash-based signature key: its security margin shrinks with every signature it makes, and it can never be rotated, because the wallet's address depends on it. The firmware deliberately puts no counter or cap on this command (a cap could leave a device that refuses to deploy) and relies on the host to cache the result per account and chain until the wallet is deployed. The firmware's analysis rates this LOW: it is not a theft path, and the forgery work stays above 128 bits until about 99,000 bootstrap signatures under one key ([`docs/VULN-getinitcode-bootstrap-fewtime-oracle.md`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/docs/VULN-getinitcode-bootstrap-fewtime-oracle.md)).
 
 What the SDK does: `Pq1Device.getInitCode` caches in memory and in the `cache` store (`chromeStorageCache()` by default in `Pq1DeviceManager`, so the cache survives service-worker restarts), and it never asks for the init code on a chain without the factory. What you should do: keep that default, and don't call `device.commands.getInitCode` in a loop.
 
@@ -48,7 +48,7 @@ Answer `eth_getCode` with the undeployed-wallet stub only for the user's own PQ1
 
 ## What your wallet can see
 
-From the firmware's disclosure ([`docs/companion/companion-privacy-disclosure.md`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/docs/companion/companion-privacy-disclosure.md)): the device never lets the host see a secret, and the host necessarily sees almost everything else.
+From the firmware's disclosure ([`docs/companion/companion-privacy-disclosure.md`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/docs/companion/companion-privacy-disclosure.md)): the device never lets the host see a secret, and the host necessarily sees almost everything else.
 
 | The wallet can see | The wallet can never see |
 | --- | --- |

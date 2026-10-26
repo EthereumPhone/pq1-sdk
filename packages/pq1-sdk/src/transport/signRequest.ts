@@ -11,10 +11,10 @@ import {
   FLAG_INCLUDE_INIT_CODE,
   isAccountIndex,
   isSlotIndex,
+  MAX_BATCH_CALL_DATA_TOTAL_LEN,
   MAX_BATCH_TXS,
   MAX_NAME_BUNDLES,
   MAX_TRAILERS_PER_BATCH,
-  MAX_BATCH_CALL_DATA_TOTAL_LEN,
   MAX_TX_LEN_LEGACY,
   NAME_BUNDLE_MAX_LEN,
   SAFE_TX_BUNDLE_MAX_LEN,
@@ -326,7 +326,7 @@ export function buildSignBatchPayload(
   const totalDataBytes = p.calls.reduce((sum, call) => sum + (call.data?.length ?? 0), 0)
   if (totalDataBytes > MAX_BATCH_CALL_DATA_TOTAL_LEN) {
     throw new Error(
-      `SIGN_USEROP_BATCH: ${totalDataBytes} bytes of call data, over the cap of ${MAX_BATCH_CALL_DATA_TOTAL_LEN}`
+      `SIGN_USEROP_BATCH: call data too long in total (${totalDataBytes} > ${MAX_BATCH_CALL_DATA_TOTAL_LEN})`
     )
   }
   const nameBundles = p.nameBundles ?? []

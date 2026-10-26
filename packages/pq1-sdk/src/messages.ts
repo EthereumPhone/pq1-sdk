@@ -27,8 +27,8 @@ import type { DeviceCommands } from './transport/commands'
 import type { SignOffchainBundle, SignOffchainRequest } from './transport/offchain'
 import { personalSignFitsDevice } from './transport/personalSignView'
 
-/** A Safe / CoW typed-data request whose domain names a different chain
- *  than the one the request was made on. */
+/** A Safe / CoW / Permit2 typed-data request whose domain names a different
+ *  chain than the one the request was made on. */
 const STRUCTURED_WRONG_NETWORK_MESSAGE =
   "This signature request is for a different network than the one you're on. Switch to that network in the app and try again. Nothing was signed."
 
@@ -36,6 +36,11 @@ const STRUCTURED_WRONG_NETWORK_MESSAGE =
  *  this network: neither a Safe nor CoW Swap can check its signature. */
 const STRUCTURED_UNDEPLOYED_MESSAGE =
   "Your PQ1 account isn't set up on this network yet, so a Safe or CoW Swap can't check this signature. Send one transaction from the account on this network first, then try again. Nothing was signed."
+
+/** The same for a Permit2 permit: Permit2 checks a smart account's
+ *  signature only once the account's code is on the network. */
+const PERMIT2_UNDEPLOYED_MESSAGE =
+  "Your PQ1 account isn't set up on this network yet, so Permit2 can't check this signature. Send one transaction from the account on this network first, then try again. Nothing was signed."
 
 /** A message to sign: a string is signed as its UTF-8 bytes; `{ raw }` as
  *  the given bytes. `personal_sign` passes hex data: use `{ raw: data }`. */
@@ -104,8 +109,8 @@ export async function signPq1Message(
 
 /**
  * Sign EIP-712 typed data, on the first route that fits:
- *   1. the device's own Safe transaction or CoW order screens (firmware that
- *      reports the capability bit);
+ *   1. the device's own Safe transaction, CoW order or Permit2 screens
+ *      (firmware that reports the capability bit);
  *   2. an ERC-7730 descriptor, so the device names each field;
  *   3. the EIP-712 hash, signed blind behind a loud warning on the device.
  * A request sent on one route is never retried on a weaker one.
@@ -153,10 +158,11 @@ async function readAccountState(c: SignOffchainContext): Promise<Pq1AccountState
   }
 }
 
-/** A Safe transaction or CoW order the device can show natively (off-chain
- *  kinds 4 / 5), or null. The device re-derives the EIP-712 hash and signs
- *  what a blind sign of it would. The route is chosen by the device's
- *  capability bit only, so a refusal on this route is final. */
+/** A Safe transaction, CoW order or Permit2 permit the device can show
+ *  natively (off-chain kinds 4 / 5 / 6), or null. The device re-derives
+ *  the EIP-712 hash and signs what a blind sign of it would. The route is
+ *  chosen by the device's capability bit only, so a refusal on this route
+ *  is final. */
 async function structuredRequest(
   c: SignOffchainContext,
   typedData: TypedDataDefinition,
@@ -171,6 +177,11 @@ async function structuredRequest(
       `${structured.kind} domain chain ${structured.chainId} != request chain ${c.chain.chainId}`
     )
   }
+  // Refused whatever the firmware, so a shape the device knows is never
+  // signed as its hash instead.
+  if (structured.kind === 'refused') {
+    throw userFacingError('cannot-display', structured.message, 'typed data refused before signing')
+  }
   const capabilities = await c.device.getCapabilities()
   if (!(capabilities & structuredCapability(structured))) {
     c.ctx.logger.warn(
@@ -181,7 +192,7 @@ async function structuredRequest(
   if (!isDeployed) {
     throw userFacingError(
       'invalid-request',
-      STRUCTURED_UNDEPLOYED_MESSAGE,
+      structured.kind === 'permit2' ? PERMIT2_UNDEPLOYED_MESSAGE : STRUCTURED_UNDEPLOYED_MESSAGE,
       `${structured.kind} from an undeployed wallet`
     )
   }

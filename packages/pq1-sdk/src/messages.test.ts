@@ -1,13 +1,19 @@
-// Message and typed-data signing against a fake device: Safe / CoW typed
-// data goes to the device's own screens (when its firmware has them) without
-// ever being retried blind after a refusal, and requests the device can't
-// verify for the user are refused first, in plain language.
+// Message and typed-data signing against a fake device: Safe / CoW / Permit2
+// typed data goes to the device's own screens (when its firmware has them)
+// without ever being retried blind after a refusal, and requests the device
+// can't verify for the user are refused first, in plain language.
 
 import { testContext } from '../test/helpers'
-import { C10_SIG_LEN, CAP_OFFCHAIN_COW_ORDER, CAP_OFFCHAIN_SAFE_TX } from './config'
+import {
+  C10_SIG_LEN,
+  CAP_OFFCHAIN_COW_ORDER,
+  CAP_OFFCHAIN_PERMIT2,
+  CAP_OFFCHAIN_SAFE_TX
+} from './config'
 import { GPV2_SETTLEMENT_ADDRESS } from './cowswap/eip712'
 import { Pq1Error } from './errors'
 import { signPq1Message, signPq1TypedData, type SignOffchainContext } from './messages'
+import { PERMIT2_ADDRESS } from './permit2/eip712'
 import { DeviceError } from './transport/hid'
 import { buildSignOffchainPayload, type SignOffchainParams } from './transport/offchain'
 
@@ -90,6 +96,51 @@ const COW_ORDER = {
   }
 }
 
+const PERMIT_BATCH = {
+  domain: { name: 'Permit2', chainId: 1, verifyingContract: PERMIT2_ADDRESS },
+  types: {
+    PermitBatch: [
+      { name: 'details', type: 'PermitDetails[]' },
+      { name: 'spender', type: 'address' },
+      { name: 'sigDeadline', type: 'uint256' }
+    ],
+    PermitDetails: [
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint160' },
+      { name: 'expiration', type: 'uint48' },
+      { name: 'nonce', type: 'uint48' }
+    ]
+  },
+  primaryType: 'PermitBatch',
+  message: {
+    details: [
+      {
+        token: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        amount: '1000000000',
+        expiration: '1798761600',
+        nonce: '0'
+      },
+      {
+        token: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+        amount: '500000000000000000',
+        expiration: '1798761600',
+        nonce: '0'
+      }
+    ],
+    spender: '0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af',
+    sigDeadline: '1767225600'
+  }
+}
+
+/** `PERMIT_BATCH` naming its first token twice, which the device refuses. */
+const PERMIT_BATCH_SAME_TOKEN_TWICE = {
+  ...PERMIT_BATCH,
+  message: {
+    ...PERMIT_BATCH.message,
+    details: [PERMIT_BATCH.message.details[0], PERMIT_BATCH.message.details[0]]
+  }
+}
+
 function contextWith(caps: number, refuse = false, chainId = 1) {
   const sent: SignOffchainParams[] = []
   const device = {
@@ -117,7 +168,7 @@ function contextWith(caps: number, refuse = false, chainId = 1) {
   return { c, sent, kinds: () => sent.map((p) => p.kind) }
 }
 
-describe('signPq1TypedData — Safe / CoW routing', () => {
+describe('signPq1TypedData — Safe / CoW / Permit2 routing', () => {
   beforeEach(() => {
     mockAccountState.isDeployed = true
   })
@@ -151,7 +202,7 @@ describe('signPq1TypedData — Safe / CoW routing', () => {
   it('refuses a request whose domain names another chain', async () => {
     const { c, kinds } = contextWith(CAP_OFFCHAIN_SAFE_TX, false, 8453)
     await expect(signPq1TypedData(c, SAFE_TX as never)).rejects.toMatchObject({
-      userMessage: expect.stringMatching(/different network/)
+      userMessage: expect.stringContaining('different network')
     })
     expect(kinds()).toEqual([])
   })
@@ -160,7 +211,41 @@ describe('signPq1TypedData — Safe / CoW routing', () => {
     mockAccountState.isDeployed = false
     const { c, kinds } = contextWith(CAP_OFFCHAIN_COW_ORDER)
     await expect(signPq1TypedData(c, COW_ORDER as never)).rejects.toMatchObject({
-      userMessage: expect.stringMatching(/isn't set up/)
+      userMessage: expect.stringContaining("isn't set up")
+    })
+    expect(kinds()).toEqual([])
+  })
+
+  it('sends a Permit2 permit as kind 6 when the device can show it', async () => {
+    const { c, kinds } = contextWith(CAP_OFFCHAIN_PERMIT2)
+    await signPq1TypedData(c, PERMIT_BATCH as never)
+    expect(kinds()).toEqual(['permit2'])
+  })
+
+  it('signs a Permit2 permit blind on firmware without the capability bit', async () => {
+    const { c, kinds } = contextWith(CAP_OFFCHAIN_SAFE_TX | CAP_OFFCHAIN_COW_ORDER)
+    await signPq1TypedData(c, PERMIT_BATCH as never)
+    expect(kinds()).toEqual(['raw32'])
+  })
+
+  it('refuses a permit the device would refuse, even on firmware without the bit', async () => {
+    for (const caps of [CAP_OFFCHAIN_PERMIT2, 0]) {
+      const { c, kinds } = contextWith(caps)
+      await expect(
+        signPq1TypedData(c, PERMIT_BATCH_SAME_TOKEN_TWICE as never)
+      ).rejects.toMatchObject({
+        code: 'cannot-display',
+        userMessage: expect.stringContaining('the same token more than once')
+      })
+      expect(kinds()).toEqual([])
+    }
+  })
+
+  it("tells an undeployed account that Permit2 can't check its signature yet", async () => {
+    mockAccountState.isDeployed = false
+    const { c, kinds } = contextWith(CAP_OFFCHAIN_PERMIT2)
+    await expect(signPq1TypedData(c, PERMIT_BATCH as never)).rejects.toMatchObject({
+      userMessage: expect.stringContaining("so Permit2 can't check this signature")
     })
     expect(kinds()).toEqual([])
   })

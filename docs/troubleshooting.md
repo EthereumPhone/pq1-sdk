@@ -34,7 +34,7 @@ Most PQ1 integration problems come from four places: the operating system not le
 
 ## Linux: udev rule
 
-On Linux the browser can only open the PQ1 if your user has access to its hidraw device. Install this rule (from the firmware's [`tools/99-pqsigner.rules`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/tools/99-pqsigner.rules)):
+On Linux the browser can only open the PQ1 if your user has access to its hidraw device. Install this rule (from the firmware's [`tools/99-pqsigner.rules`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/tools/99-pqsigner.rules)):
 
 ```
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="7051", MODE="0666", TAG+="uaccess"

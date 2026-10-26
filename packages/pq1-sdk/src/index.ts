@@ -56,6 +56,7 @@ export type { KeyValueStore } from './store'
 
 export {
   CAP_OFFCHAIN_COW_ORDER,
+  CAP_OFFCHAIN_PERMIT2,
   CAP_OFFCHAIN_SAFE_TX,
   ENTRY_POINT_V06,
   FACTORY,

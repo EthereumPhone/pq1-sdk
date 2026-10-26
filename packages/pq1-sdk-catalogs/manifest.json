@@ -1,6 +1,6 @@
 {
   "firmwareRepo": "https://github.com/EthereumPhone/PQ1",
-  "firmwareCommit": "8a3fb4b3db9eb3de97c65e4399cbf3d157e3c103",
+  "firmwareCommit": "0313a2eff47c10ea74855bdad86f597c74b1ab67",
   "catalogs": {
     "erc20": {
       "file": "erc20_db.bin",
@@ -10,9 +10,9 @@
     },
     "names": {
       "file": "names_db.bin",
-      "size": 104836,
-      "sha256": "94f587e29e2a7a141692516b8f35ee8c8877d6146745a23116f64d2c2963dd7a",
-      "merkleRoot": "0x5320d4c40deb7aeeffd3ae9b995cc1fc1818df0341341f682f208eff5f1d6abc"
+      "size": 112290,
+      "sha256": "e77a8314592502caf2894bb11eb050f1aafe91d61435a071a9a79df7f5852823",
+      "merkleRoot": "0x52553ed9175b57c60f631b7c71890b5838af4781541b36f37a0c0c933e81f7aa"
     },
     "selectors": {
       "file": "selectors_db.bin",

@@ -2,7 +2,7 @@
 // a FakePq1Device behind the real WebHID transport (framing, chaining,
 // GET_RESPONSE), a fake chain and a fake bundler.
 
-import { decodeFunctionData, encodeFunctionData, erc20Abi, parseAbi } from 'viem'
+import { decodeFunctionData, encodeFunctionData, erc20Abi, isHex, parseAbi, size } from 'viem'
 
 import {
   BundlerError,
@@ -113,7 +113,8 @@ describe('createPq1Wallet', () => {
 
     const receipt = await wallet.waitForReceipt({ chainId: CHAIN_ID, userOpHash })
     expect(receipt.success).toBe(true)
-    expect(receipt.transactionHash).toMatch(/^0x[0-9a-f]{64}$/)
+    expect(isHex(receipt.transactionHash, { strict: true })).toBe(true)
+    expect(size(receipt.transactionHash)).toBe(32)
   })
 
   it('sends a batch from a deployed account as one UserOp with clear-signing data', async () => {

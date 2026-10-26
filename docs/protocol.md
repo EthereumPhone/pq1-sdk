@@ -1,6 +1,6 @@
 # Wire protocol reference
 
-This page describes how the PQ1 talks over USB, for anyone writing their own transport (a Node `node-hid` bridge, a native app) or debugging at the byte level. Most integrations never need it: `HidTransport` and `DeviceCommands` in `pq1-sdk/transport` implement all of it, and `HidTransport.connect({ device })` accepts any `HIDDevice`-shaped object, so a custom transport often only has to provide `open`, `close`, `sendReport` and `inputreport` events. The normative source is the firmware's [`docs/companion/usb-protocol-v2.md`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/docs/companion/usb-protocol-v2.md) and [`proto/src/lib.rs`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/proto/src/lib.rs) at commit `8a3fb4b3` (protocol 0x0203); the last section lists where those documents and the code disagree.
+This page describes how the PQ1 talks over USB, for anyone writing their own transport (a Node `node-hid` bridge, a native app) or debugging at the byte level. Most integrations never need it: `HidTransport` and `DeviceCommands` in `pq1-sdk/transport` implement all of it, and `HidTransport.connect({ device })` accepts any `HIDDevice`-shaped object, so a custom transport often only has to provide `open`, `close`, `sendReport` and `inputreport` events. The normative source is the firmware's [`docs/companion/usb-protocol-v2.md`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/docs/companion/usb-protocol-v2.md) and [`proto/src/lib.rs`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/proto/src/lib.rs) at commit `0313a2ef` (protocol 0x0203); the last section lists where those documents and the code disagree.
 
 ## USB
 
@@ -47,7 +47,7 @@ Reply:    [Data] SW1 SW2
 | `0x32` | SIGN_USEROP_BATCH | yes | yes | Sign a UserOp of 1-4 calls (protocol ≥ 0x0200) |
 | `0x60` | GET_WALLET_ADDRESS | no | yes | `[account u32 BE]` (+ `[show u8]` from 0x0202) → 20-byte address |
 | `0x61` | GET_INIT_CODE | no (reply chained) | yes | `[account u32 BE][chain u64 BE]` → 4280-byte init code. **Spends a bootstrap-key signature; cache it** |
-| `0x62` | SIGN_OFFCHAIN | yes | yes | EIP-1271 / ERC-6492 message signatures, kinds 0-5 |
+| `0x62` | SIGN_OFFCHAIN | yes | yes | EIP-1271 / ERC-6492 message signatures, kinds 0-6 |
 | `0x63` | OFFCHAIN_STATUS | no | no | Per-slot `(local count, last UserOp count, registered)` readback |
 | `0x64` | OFFCHAIN_SYNC | no | yes | Raise a slot's off-chain count floor; may ask the user |
 | `0x70`-`0x74` | FW_BEGIN / CHUNK / COMMIT / STATUS / ABORT | BEGIN | no | Firmware update; pre-production, blocked in production |
@@ -72,7 +72,7 @@ Retired values return `6D00`: `0x20`, `0x21`, `0x31`, `0x40`, `0x41`, `0x50`.
 | 36 | 2 | `ep_version` = 0x0006 (EntryPoint v0.6) |
 | 38 | 2 | `wrapper_overhead` = 96 |
 
-Capability bits: bit 0 `CAP_SIGN_USEROP`; bit 1 retired; bit 2 `CAP_ERC7730_PROOF_SET` (two-descriptor envelope, not built by the SDK); bit 3 `CAP_OFFCHAIN_SAFE_TX`; bit 4 `CAP_OFFCHAIN_COW_ORDER`; bit 5 `CAP_SIGN_USEROP_DATA_8K` (calls of up to 8192 bytes of data, see below). Current firmware reports `0x3D`.
+Capability bits: bit 0 `CAP_SIGN_USEROP`; bit 1 retired; bit 2 `CAP_ERC7730_PROOF_SET` (two-descriptor envelope, not built by the SDK); bit 3 `CAP_OFFCHAIN_SAFE_TX`; bit 4 `CAP_OFFCHAIN_COW_ORDER`; bit 5 `CAP_SIGN_USEROP_DATA_8K` (calls of up to 8192 bytes of data, see below); bit 6 `CAP_OFFCHAIN_PERMIT2`. Current firmware reports `0x7D`.
 
 ### GET_STATUS
 
@@ -139,8 +139,22 @@ Header (17 bytes): `account u8 ‖ chain_id u64 BE ‖ slot u32 BE ‖ kind u8 �
 | 3 EIP712_TYPED_V3 | nested typed data with display witnesses | Not sent by the SDK |
 | 4 SAFE_TX | `u16 len ‖ safe_v1 ‖ u16 len ‖ erc20 ‖ u16 len ‖ cow ‖ u8 n ‖ n × (u16 len ‖ name)` (290..12,334) | Needs `CAP_OFFCHAIN_SAFE_TX` and a deployed wallet |
 | 5 COW_ORDER | the CoW order bundle (208..2448) | Needs `CAP_OFFCHAIN_COW_ORDER` and a deployed wallet |
+| 6 PERMIT2 | the canonical permit, then one `u16 len ‖ ERC-20 bundle` per token (len 0: none), then `u8 n ‖ n × (u16 len ‖ name)` with n ≤ 1, the spender's (117..8234) | Needs `CAP_OFFCHAIN_PERMIT2` and a deployed wallet; no witness permits |
 
-Reply: `new_count u64 BE ‖ sig (4008)` (4016 bytes) for a deployed wallet — wrap it as `abi.encode(uint256 ownerIndex, bytes sig)` — or `new_count u64 BE ‖ ERC-6492 signature (8608)` (8616 bytes) for an undeployed one (slot 0 only), passed through unchanged. Kinds 4 and 5 sign the same value a RAW32 sign of the recomputed hash would. Never fall back to RAW32 after a kind 4/5 refusal.
+Reply: `new_count u64 BE ‖ sig (4008)` (4016 bytes) for a deployed wallet — wrap it as `abi.encode(uint256 ownerIndex, bytes sig)` — or `new_count u64 BE ‖ ERC-6492 signature (8608)` (8616 bytes) for an undeployed one (slot 0 only), passed through unchanged. Kinds 4, 5 and 6 sign the same value a RAW32 sign of the recomputed hash would. Never fall back to RAW32 after a kind 4/5/6 refusal.
+
+The canonical permit packs every value at its Solidity width (a value that doesn't fit is refused, not truncated):
+
+```
+allowance (variant 0 PermitSingle, 1 PermitBatch):
+  variant(1) chain_id(8 BE) spender(20) sigDeadline(32 BE) count(1)
+  count × { token(20) amount uint160(20 BE) expiration uint48(6 BE) nonce uint48(6 BE) }
+transfer (variant 2 PermitTransferFrom, 3 PermitBatchTransferFrom):
+  variant(1) chain_id(8 BE) spender(20) nonce(32 BE) deadline(32 BE) count(1)
+  count × { token(20) amount uint256(32 BE) }
+```
+
+`count` is 1 for variants 0 and 2, and 1-6 for variants 1 and 3.
 
 ### OFFCHAIN_SYNC (0x64)
 
@@ -208,7 +222,7 @@ How the SDK maps these to error codes is in [errors.md](errors.md#device-status-
 
 ## Corrections to the firmware docs
 
-At `8a3fb4b3`, the code differs from some firmware documentation. Trust the code:
+Checked at `8a3fb4b3`: the code differs from some firmware documentation. Trust the code:
 
 1. **Init code ABI offset.** The legacy integration guide's table says the `factorySig` offset word is `0x140`; it is `0xC0` (`proto/src/lib.rs`).
 2. **`createAccount` chain id type.** Documented as `uint256`; the contract and selector (`0xf6182a73`) use `uint64`.

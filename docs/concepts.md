@@ -16,7 +16,7 @@ ECDSA verification is built into Ethereum; SPHINCS+ verification is not. So a PQ
 | Property | Value |
 | --- | --- |
 | Account standard | ERC-4337, **EntryPoint v0.6** (`0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789`) |
-| Factory | `PQSmartWalletFactory` at `0xe8ce78cd976497447ff8b76c71b59ae42af0d452`, deployed with CREATE2 |
+| Factory | `PQSmartWalletFactory` at `0xe3dba404dcec30093de26764965a51689c1607bd` (the contract set frozen for the 2026-10 audit), deployed with CREATE2 |
 | Address | The same on every chain (CREATE2 from the factory and the account's key) |
 | Chains | Ethereum (1), Base (8453), Base Sepolia (84532): `PQ1_SUPPORTED_CHAIN_IDS` |
 | Fees | Paid in ETH by the account itself. No paymaster. |
@@ -27,7 +27,7 @@ Consequences for your wallet:
 - A message signature is verified by calling the wallet's `isValidSignature` (ERC-1271), never by `ecrecover`. See [Message signing](./message-signing.md).
 - Dapps must be told the account is a smart account. See [dApp provider](./dapp-provider.md).
 
-The contracts are in the firmware repo under [`contracts/smart-wallet/src`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/contracts/smart-wallet/src/PQSmartWallet.sol).
+The contracts are in the firmware repo under [`contracts/smart-wallet/src`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/contracts/smart-wallet/src/PQSmartWallet.sol).
 
 ## 256 numbered accounts
 
@@ -47,7 +47,7 @@ A fresh account has an address but no code on any chain. Its first transaction o
 
 The bootstrap key is a SPHINCS+ key, and SPHINCS+ signatures use "few-time" components that weaken slightly with every signature made by the same key. The bootstrap key can never be rotated, because the account's address depends on it. And the device signs `GET_INIT_CODE` requests without asking the user.
 
-So the firmware leaves it to the host to ask as rarely as possible: cache the init code per account and chain until the wallet is deployed (see [`cmd_get_init_code.rs`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/secure/src/nsc/cmd_get_init_code.rs) and [the analysis](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/docs/VULN-getinitcode-bootstrap-fewtime-oracle.md)). The SDK does this in `Pq1Device.getInitCode`, in memory and in the `cache` store you give it. In an extension that is `chrome.storage.local`, so the cache survives service-worker restarts. The risk is low in practice, but don't work around the cache.
+So the firmware leaves it to the host to ask as rarely as possible: cache the init code per account and chain until the wallet is deployed (see [`cmd_get_init_code.rs`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/secure/src/nsc/cmd_get_init_code.rs) and [the analysis](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/docs/VULN-getinitcode-bootstrap-fewtime-oracle.md)). The SDK does this in `Pq1Device.getInitCode`, in memory and in the `cache` store you give it. In an extension that is `chrome.storage.local`, so the cache survives service-worker restarts. The risk is low in practice, but don't work around the cache.
 
 ## Owner slots
 
@@ -64,7 +64,7 @@ A new wallet starts with slot 0 (ownerIndex 1). Each slot key can make up to 65,
 
 Message signatures are verified on-chain, but signing them doesn't touch the chain. To bound how much each slot key is used, the wallet counts them: every transaction carries the device's current count of off-chain signatures (`newOffchainCount` in its call data), and the wallet rejects a count lower than the one it already has.
 
-The device keeps its own count per slot. If it falls behind the wallet's (after a firmware reflash, or with the same seed on a second device), a transaction would revert after paying its fee. So before signing a transaction, the SDK reads the wallet's `offchainSigCount` and sends `OFFCHAIN_SYNC` to raise the device's count to it. When the count actually goes up, the device asks the user **"Update signature count?"**, showing both counts and the signatures left, with an extra "CAREFUL" page for large jumps (firmware: [`usb-protocol-v2.md` §0x64](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/docs/companion/usb-protocol-v2.md)). This is expected; tell your users about it. The SDK only ever sends the value read from the chain.
+The device keeps its own count per slot. If it falls behind the wallet's (after a firmware reflash, or with the same seed on a second device), a transaction would revert after paying its fee. So before signing a transaction, the SDK reads the wallet's `offchainSigCount` and sends `OFFCHAIN_SYNC` to raise the device's count to it. When the count actually goes up, the device asks the user **"Update signature count?"**, showing both counts and the signatures left, with an extra "CAREFUL" page for large jumps (firmware: [`usb-protocol-v2.md` §0x64](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/docs/companion/usb-protocol-v2.md)). This is expected; tell your users about it. The SDK only ever sends the value read from the chain.
 
 ## Signature formats
 

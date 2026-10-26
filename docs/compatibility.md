@@ -4,7 +4,7 @@ This page lists what this version of the SDK (0.1.0) works with: PQ1 firmware pr
 
 ## Firmware
 
-The SDK was built and tested against firmware [`EthereumPhone/PQ1@8a3fb4b3`](https://github.com/EthereumPhone/PQ1/tree/8a3fb4b3), protocol **0x0203**.
+The SDK was built and tested against firmware [`EthereumPhone/PQ1@0313a2ef`](https://github.com/EthereumPhone/PQ1/tree/0313a2ef), protocol **0x0203**.
 
 | Protocol | What works | What doesn't |
 | --- | --- | --- |
@@ -19,19 +19,20 @@ The SDK was built and tested against firmware [`EthereumPhone/PQ1@8a3fb4b3`](htt
 | `CAP_OFFCHAIN_COW_ORDER` (bit 4) | CoW `Order` typed data shown on the device; without it, signed as a blind hash |
 | `CAP_ERC7730_PROOF_SET` (bit 2) | Not used: the SDK sends single ERC-7730 bundles |
 | `CAP_SIGN_USEROP_DATA_8K` (bit 5) | Calls of up to 8192 bytes of data (e.g. Uniswap Universal Router swaps); without it the SDK refuses a call over 4096 bytes with `outdated` before sending it |
+| `CAP_OFFCHAIN_PERMIT2` (bit 6) | Uniswap Permit2 permits shown on the device; without it, signed as a blind hash |
 
 ## Catalogs
 
-`pq1-sdk-catalogs` 0.1.0 matches firmware `8a3fb4b3` (production roots from [`secure/src/db_roots.rs`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/secure/src/db_roots.rs)):
+`pq1-sdk-catalogs` 0.1.0 matches firmware `0313a2ef` (production roots from [`secure/src/db_roots.rs`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/secure/src/db_roots.rs)):
 
 | Catalog | Merkle root |
 | --- | --- |
 | `erc20` | `0xc435c576df0aa21956c5add530563780d2d878d115b4523ea84d9834e55bf203` |
-| `names` | `0x5320d4c40deb7aeeffd3ae9b995cc1fc1818df0341341f682f208eff5f1d6abc` |
+| `names` | `0x52553ed9175b57c60f631b7c71890b5838af4781541b36f37a0c0c933e81f7aa` |
 | `selectors` | `0x751caf5205a4ff5901ab6478af91ff36338f874b868378c610b693947456e46a` |
 | `erc7730` | `0x8c3dc4b2b1789106a1043aed08114b7827d56052dd920eb0dd6671a84db643e6` |
 
-A device on firmware with other roots rejects every proof from these files and shows raw data. Release catalogs together with firmware support (see [clear-signing.md](clear-signing.md#keeping-the-catalogs-in-sync-with-the-firmware)).
+A device on firmware with other roots rejects every proof from these files and shows raw data. Firmware built before `0313a2ef` has the previous names root, so it shows addresses without names until it is updated; the other three roots are unchanged. Release catalogs together with firmware support (see [clear-signing.md](clear-signing.md#keeping-the-catalogs-in-sync-with-the-firmware)).
 
 ## Chains and contracts
 
@@ -40,11 +41,11 @@ A device on firmware with other roots rejects every proof from these files and s
 | Contract | Address |
 | --- | --- |
 | EntryPoint v0.6 | `0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789` |
-| PQSmartWalletFactory (`FACTORY`) | `0xe8CE78CD976497447FF8B76c71b59aE42Af0d452` |
-| PQSmartWallet implementation | `0x31e49D24370bFa487dF1D6687A1aca5a34183590` |
-| SPHINCS+ C10 verifier | `0xdDE4D290d646097ECeEA1e33Bf8C9Fa6dd589cbB` |
+| PQSmartWalletFactory (`FACTORY`) | `0xE3dbA404dCeC30093DE26764965a51689C1607BD` |
+| PQSmartWallet implementation | `0xEb64deaD5Ca0C433365EABC1AB6eBdeb28f53011` |
+| SPHINCS+ C10 verifier | `0x7Ab9Abd09ef8A5D2ca06d9509BB295e637FA6aB4` |
 
-The addresses come from the firmware's [`contracts/smart-wallet/deployments/base-mainnet.json`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/contracts/smart-wallet/deployments/base-mainnet.json); the firmware derives wallet addresses from the same factory address. The factory was deployed at this address on Ethereum and Base Sepolia on 2026-10-19 and 2026-10-20; its code is byte-identical on all three chains. The firmware repository's [`docs/VULN-eth-mainnet-deployment-divergence.md`](https://github.com/EthereumPhone/PQ1/blob/8a3fb4b3/docs/VULN-eth-mainnet-deployment-divergence.md) predates the matching Ethereum deployment. Either way, before every first deployment the SDK checks that the factory has code on the chain and that it predicts the account's address from the device's keys, and refuses with `unsupported-network` or `firmware-mismatch` otherwise.
+These are the contracts frozen for the 2026-10 audit (firmware tag `tob-audit-freeze-2026-10`), deployed on all three chains on 2026-10-21 with identical code. The addresses come from the firmware's [`contracts/smart-wallet/deployments/base-mainnet.json`](https://github.com/EthereumPhone/PQ1/blob/0313a2ef/contracts/smart-wallet/deployments/base-mainnet.json); the firmware derives wallet addresses from the same factory address. Firmware built for the earlier factory (`0xe8CE78CD…d452`) derives other addresses, and the SDK refuses it with `firmware-mismatch`. Before every first deployment the SDK checks that the factory has code on the chain and that it predicts the account's address from the device's keys, and refuses with `unsupported-network` or `firmware-mismatch` otherwise.
 
 Another chain works only once the same factory is deployed there. Narrow the list with the `chains` option of `createPq1Wallet`.
 

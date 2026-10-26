@@ -2,8 +2,10 @@
 // a call that needs a bundle it lacks: a direct CoW presign, a Safe
 // approveHash, and a CoW presign inside a Safe transaction — single-call and
 // in a MultiSendCallOnly batch. They also lay out the CoW order and Safe
-// bundles of one call in the positions the device reads them from.
+// bundles of one call in the positions the device reads them from, and cap
+// each call's data, and a batch's summed data, as the device does.
 
+import { MAX_BATCH_CALL_DATA_TOTAL_LEN, MAX_TX_LEN } from '../config'
 import { SAFE_EXEC_TRANSACTION_SELECTOR } from '../safe/execCalldata'
 import { MULTI_SEND_SELECTOR } from '../safe/multiSend'
 import { hexToBytes } from './bytes'
@@ -185,14 +187,14 @@ function trailerSectionLens(payload: Uint8Array, dataLen: number): number[] {
 describe('buildSignPayload downgrade gates', () => {
   it('refuses a direct CoW setPreSignature without a cowOrderBundle', () => {
     expect(() => buildSignPayload(baseParams(GPV2_SETTLEMENT, presignCalldata()))).toThrow(
-      /CoW setPreSignature requires a CoW order bundle/
+      'CoW setPreSignature requires a CoW order bundle'
     )
   })
 
   it('fires the direct gate on malformed presign calldata too (selector-only, like the firmware)', () => {
     const malformed = presignCalldata().subarray(0, 60)
     expect(() => buildSignPayload(baseParams(GPV2_SETTLEMENT, malformed))).toThrow(
-      /CoW setPreSignature requires a CoW order bundle/
+      'CoW setPreSignature requires a CoW order bundle'
     )
   })
 
@@ -214,7 +216,7 @@ describe('buildSignPayload downgrade gates', () => {
         ...baseParams(SAFE_ADDR, approveHashCalldata()),
         safeV1Bundle: bundle
       })
-    ).toThrow(/Safe-wrapped CoW setPreSignature requires a CoW order bundle/)
+    ).toThrow('Safe-wrapped CoW setPreSignature requires a CoW order bundle')
   })
 
   it('accepts a Safe(approveHash)-wrapped CoW presign with both bundles, sections framed in order', () => {
@@ -250,7 +252,7 @@ describe('buildSignPayload downgrade gates', () => {
   it('refuses a Safe(execTransaction)-wrapped CoW presign without a cowOrderBundle', () => {
     const data = execTransactionCalldata(GPV2_SETTLEMENT, presignCalldata())
     expect(() => buildSignPayload(baseParams(SAFE_ADDR, data))).toThrow(
-      /Safe-wrapped CoW setPreSignature requires a CoW order bundle/
+      'Safe-wrapped CoW setPreSignature requires a CoW order bundle'
     )
     expect(() =>
       buildSignPayload({
@@ -274,7 +276,7 @@ describe('buildSignPayload multiSend gates', () => {
         ...baseParams(SAFE_ADDR, approveHashCalldata()),
         safeV1Bundle: bundle
       })
-    ).toThrow(/Safe-wrapped CoW setPreSignature requires a CoW order bundle/)
+    ).toThrow('Safe-wrapped CoW setPreSignature requires a CoW order bundle')
   })
 
   it('accepts an approveHash-flavour multiSend CoW batch with both bundles', () => {
@@ -325,7 +327,7 @@ describe('buildSignPayload multiSend gates', () => {
         safeV1Bundle: safeV1Bundle(MS_CALL_ONLY_130, twoPresigns, 1),
         cowOrderBundle: new Uint8Array(COW_CANONICAL_LEN)
       })
-    ).toThrow(/Safe sign \/ msend 2\+ presign/)
+    ).toThrow('Safe sign / msend 2+ presign')
   })
 
   it("refuses a malformed claimed multiSend regardless of trailers ('msend malformed')", () => {
@@ -336,13 +338,13 @@ describe('buildSignPayload multiSend gates', () => {
         safeV1Bundle: safeV1Bundle(MS_CALL_ONLY_130, malformed, 1),
         cowOrderBundle: new Uint8Array(COW_CANONICAL_LEN)
       })
-    ).toThrow(/Safe sign \/ msend malformed/)
+    ).toThrow('Safe sign / msend malformed')
   })
 
   it('gates the execTransaction flavour: multiSend CoW batch requires a CoW order bundle', () => {
     const data = execTransactionCalldata(MS_CALL_ONLY_130, cowMultiSendCalldata(), 1)
     expect(() => buildSignPayload(baseParams(SAFE_ADDR, data))).toThrow(
-      /Safe-wrapped CoW setPreSignature requires a CoW order bundle/
+      'Safe-wrapped CoW setPreSignature requires a CoW order bundle'
     )
     expect(() =>
       buildSignPayload({
@@ -380,7 +382,7 @@ describe('buildSignBatchPayload downgrade gates', () => {
           }
         ]
       })
-    ).toThrow(/inner call 0: Safe-wrapped CoW setPreSignature requires a CoW order bundle/)
+    ).toThrow('inner call 0: Safe-wrapped CoW setPreSignature requires a CoW order bundle')
 
     expect(() =>
       buildSignBatchPayload({
@@ -394,7 +396,7 @@ describe('buildSignBatchPayload downgrade gates', () => {
           }
         ]
       })
-    ).toThrow(/inner call 1: Safe-wrapped CoW setPreSignature requires a CoW order bundle/)
+    ).toThrow('inner call 1: Safe-wrapped CoW setPreSignature requires a CoW order bundle')
   })
 
   it('refuses a multiSend-batched CoW presign call without a cowOrderBundle (both flavours)', () => {
@@ -410,7 +412,7 @@ describe('buildSignBatchPayload downgrade gates', () => {
           }
         ]
       })
-    ).toThrow(/inner call 0: Safe-wrapped CoW setPreSignature requires a CoW order bundle/)
+    ).toThrow('inner call 0: Safe-wrapped CoW setPreSignature requires a CoW order bundle')
 
     expect(() =>
       buildSignBatchPayload({
@@ -423,7 +425,7 @@ describe('buildSignBatchPayload downgrade gates', () => {
           }
         ]
       })
-    ).toThrow(/inner call 0: Safe-wrapped CoW setPreSignature requires a CoW order bundle/)
+    ).toThrow('inner call 0: Safe-wrapped CoW setPreSignature requires a CoW order bundle')
   })
 
   it('refuses a hard-rule-violating multiSend batch on the batch wire, quoting the banner', () => {
@@ -444,7 +446,9 @@ describe('buildSignBatchPayload downgrade gates', () => {
           }
         ]
       })
-    ).toThrow(/inner call 0: Safe multiSend batch refused .* msend 2\+ presign/)
+    ).toThrow(
+      'inner call 0: Safe multiSend batch refused by the PQ1 ("Safe sign / msend 2+ presign")'
+    )
   })
 
   it('accepts a multiSend CoW batch with the CoW order and safe_v1 bundles on the same call', () => {
@@ -498,32 +502,44 @@ describe('buildSignBatchPayload downgrade gates', () => {
   })
 })
 
-describe('call-data caps (2026-10-22: 8192 per call, 16,384 per batch)', () => {
-  const callOf = (bytes: number) => baseParams(OTHER_TO, new Uint8Array(bytes).fill(0xab))
-
-  it('defaults to the 4096-byte cap every firmware accepts', () => {
-    expect(() => buildSignPayload(callOf(4096))).not.toThrow()
-    expect(() => buildSignPayload(callOf(4097))).toThrow(/call data too long \(4097 > 4096\)/)
+describe('call-data caps', () => {
+  const userOpHeader = {
+    chainId: 1,
+    accountIndex: 0,
+    slotIndex: 0,
+    sender: SENDER,
+    nonce: 0,
+    callGas: 0,
+    verGas: 0,
+    preVerificationGas: 0,
+    maxFeePerGas: 0,
+    maxPriorityFeePerGas: 0
+  }
+  const batch = (...dataLens: number[]) => ({
+    ...userOpHeader,
+    calls: dataLens.map((dataLen) => ({ to: OTHER_TO, value: 0, data: new Uint8Array(dataLen) }))
   })
 
-  it('takes up to the cap the caller passes for the device', () => {
-    expect(() => buildSignPayload(callOf(8192), 8192)).not.toThrow()
-    expect(() => buildSignPayload(callOf(8193), 8192)).toThrow(/8193 > 8192/)
-    // data_len is a u16 on the wire: 8192 is written as 0x2000.
-    const payload = buildSignPayload(callOf(5050), 8192)
-    expect((payload[328]! << 8) | payload[329]!).toBe(5050)
-  })
-
-  it('caps a batch at 16,384 bytes of call data in total', () => {
-    const batch = (...sizes: number[]) => ({
-      ...callOf(0),
-      calls: sizes.map((n) => ({ to: OTHER_TO, value: 0n, data: new Uint8Array(n) }))
-    })
-    expect(() => buildSignBatchPayload(batch(8192, 8192), 8192)).not.toThrow()
-    expect(() => buildSignBatchPayload(batch(8192, 8192, 1), 8192)).toThrow(
-      /16385 bytes of call data, over the cap of 16384/
+  it('takes up to MAX_TX_LEN_LEGACY bytes in one call unless given the device cap', () => {
+    expect(() => buildSignPayload(baseParams(OTHER_TO, new Uint8Array(4096)))).not.toThrow()
+    expect(() => buildSignPayload(baseParams(OTHER_TO, new Uint8Array(4097)))).toThrow(
+      'call data too long (4097 > 4096)'
     )
-    // Without the device's cap, a 5,050-byte member is refused.
-    expect(() => buildSignBatchPayload(batch(68, 5050))).toThrow(/5050 > 4096/)
+    expect(() =>
+      buildSignPayload(baseParams(OTHER_TO, new Uint8Array(8192)), MAX_TX_LEN)
+    ).not.toThrow()
+    expect(() => buildSignPayload(baseParams(OTHER_TO, new Uint8Array(8193)), MAX_TX_LEN)).toThrow(
+      'call data too long (8193 > 8192)'
+    )
+  })
+
+  it('caps the summed call data of a batch at MAX_BATCH_CALL_DATA_TOTAL_LEN', () => {
+    expect(() => buildSignBatchPayload(batch(8192, 8192), MAX_TX_LEN)).not.toThrow()
+    expect(() => buildSignBatchPayload(batch(8192, 8192, 1), MAX_TX_LEN)).toThrow(
+      `call data too long in total (16385 > ${MAX_BATCH_CALL_DATA_TOTAL_LEN})`
+    )
+    expect(() => buildSignBatchPayload(batch(68, 4097))).toThrow(
+      'inner call 1: call data too long (4097 > 4096)'
+    )
   })
 })

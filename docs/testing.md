@@ -165,7 +165,7 @@ Run through this on a real device before a release (Base Sepolia is the cheapest
 2. **Unlock**: start locked; the PIN prompt appears on the device when needed.
 3. **Accounts**: list accounts 0-4; `showAddress` shows the same address on the device.
 4. **personal_sign**: a short text message (shown as text), a long one (hash with warning), a hex one.
-5. **Typed data**: a Permit2 or other ERC-7730-covered message (fields shown), an unknown one (blind hash warning).
+5. **Typed data**: a Uniswap Permit2 permit (spender, tokens and amounts shown), an ERC-7730-covered message (fields shown), an unknown one (blind hash warning).
 6. **First deploy**: a fresh account index sends its first transaction; the device shows the factory page; the account is deployed afterwards.
 7. **Batch**: 2-4 calls in one `wallet_sendCalls`; the device shows each call and a final confirmation.
 8. **Token transfer**: an ERC-20 transfer shows the token and amount, not raw data.
