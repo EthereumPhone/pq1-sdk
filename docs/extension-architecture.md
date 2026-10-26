@@ -113,6 +113,35 @@ if (!getWebHidSupport().supported) {
 
 Accounts added in Chrome and synced to a Firefox profile can't sign there; operations reject with code `unsupported`.
 
+## LavaMoat and other policy tools
+
+The SDK reads every browser global as a plain member chain (`navigator.hid`, `chrome.runtime.getURL`, `chrome.storage.local.get`, ...), never through an alias such as `globalThis.chrome` or a `typeof navigator` check. A policy generator such as LavaMoat's then grants exactly what the SDK uses, and nothing it uses is cut off at runtime. A generated policy for a service worker that uses `pq1-sdk` and `pq1-sdk/extension` looks like this:
+
+```json
+"pq1-sdk": {
+  "globals": {
+    "AbortController": true,
+    "TextEncoder": true,
+    "chrome.runtime.getURL": true,
+    "chrome.runtime.id": true,
+    "chrome.runtime.onMessage.addListener": true,
+    "chrome.runtime.onMessage.removeListener": true,
+    "chrome.runtime.sendMessage": true,
+    "chrome.storage.local.get": true,
+    "chrome.storage.local.set": true,
+    "clearTimeout": true,
+    "console.error": true,
+    "console.warn": true,
+    "fetch": true,
+    "navigator.hid": true,
+    "setTimeout": true
+  },
+  "packages": { "viem": true }
+}
+```
+
+`fetch` reaches the bundler, the CoW and Safe APIs, and the catalogs; `chrome.storage.local` holds the init-code cache. `pq1-sdk/testing` reads `globalThis.navigator` to install a fake device; don't bundle it.
+
 ## Don'ts
 
 - **Don't open the device from a page as well as from the service worker.** Replies get mixed up between the two connections. Ask the service worker instead, even for a quick address lookup.

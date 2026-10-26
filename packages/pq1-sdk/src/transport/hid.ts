@@ -50,8 +50,16 @@ const SW1_MORE_DATA = 0x61
 
 /** True when the browser has WebHID: Chromium-based browsers do, Firefox and
  *  Safari don't. */
-export const isWebHidSupported = (): boolean =>
-  typeof navigator !== 'undefined' && navigator !== null && 'hid' in navigator && !!navigator.hid
+export const isWebHidSupported = (): boolean => {
+  // A plain `navigator.hid` read, without `typeof navigator`: LavaMoat-style
+  // policy generators then grant `navigator.hid` instead of all of
+  // `navigator`. Without a `navigator` global the read throws.
+  try {
+    return !!navigator.hid
+  } catch {
+    return false
+  }
+}
 
 /** The WebHID filter that matches a PQ1 (pid.codes VID 0x1209, PID 0x7051). */
 export const PQ1_HID_FILTERS: HIDDeviceFilter[] = [{ vendorId: PQ1_VID, productId: PQ1_PID }]

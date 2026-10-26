@@ -31,16 +31,22 @@ import { findGrantedPq1, isWebHidSupported, PQ1_HID_FILTERS } from '../transport
 
 export { CATALOG_FILE_NAMES }
 
-/** The `chrome` (or `browser`) extension API, if there is one. */
-function extensionApi(): typeof chrome | undefined {
-  const g = globalThis as { chrome?: typeof chrome; browser?: typeof chrome }
-  return g.chrome?.runtime?.id ? g.chrome : g.browser?.runtime?.id ? g.browser : undefined
+// Every extension API is read as a plain `chrome.*` member chain, never
+// through an alias such as `globalThis.chrome`: LavaMoat-style policy
+// generators only see the former, so an alias would be cut off at runtime.
+// Firefox also provides `chrome.*`.
+
+/** Whether this code runs in a browser extension. */
+function isExtension(): boolean {
+  try {
+    return !!chrome.runtime.id
+  } catch {
+    return false
+  }
 }
 
-function requireExtensionApi(): typeof chrome {
-  const api = extensionApi()
-  if (!api) throw new Error('not running in a browser extension')
-  return api
+function requireExtension(): void {
+  if (!isExtension()) throw new Error('not running in a browser extension')
 }
 
 /** Whether this browser can talk to a PQ1. Firefox and Safari have no
@@ -78,18 +84,19 @@ export const PQ1_PERMISSION_GRANTED_MESSAGE = 'pq1:permission-granted'
 /** Tell the service worker the user just granted a PQ1 (call from the page
  *  after `requestPq1Permission`). */
 export async function notifyPermissionGranted(): Promise<void> {
-  await requireExtensionApi().runtime.sendMessage({ type: PQ1_PERMISSION_GRANTED_MESSAGE })
+  requireExtension()
+  await chrome.runtime.sendMessage({ type: PQ1_PERMISSION_GRANTED_MESSAGE })
 }
 
 /** Run `callback` in the service worker whenever a page reports a newly
  *  granted PQ1. Returns a function that removes the listener. */
 export function onPermissionGranted(callback: () => void): () => void {
-  const api = requireExtensionApi()
+  requireExtension()
   const listener = (message: unknown) => {
     if ((message as { type?: unknown } | null)?.type === PQ1_PERMISSION_GRANTED_MESSAGE) callback()
   }
-  api.runtime.onMessage.addListener(listener)
-  return () => api.runtime.onMessage.removeListener(listener)
+  chrome.runtime.onMessage.addListener(listener)
+  return () => chrome.runtime.onMessage.removeListener(listener)
 }
 
 /** Options for `Pq1DeviceManager`. */
@@ -120,7 +127,7 @@ export class Pq1DeviceManager {
   private readonly logger: Pq1Logger
 
   constructor(private readonly options: Pq1DeviceManagerOptions = {}) {
-    this.cache = options.cache ?? (extensionApi() ? chromeStorageCache() : undefined)
+    this.cache = options.cache ?? (isExtension() ? chromeStorageCache() : undefined)
     this.logger = options.logger ?? consoleLogger
   }
 
@@ -186,7 +193,8 @@ export class Pq1DeviceManager {
 export function extensionCatalogs(basePath = 'pq1/'): CatalogSource {
   return {
     load(name) {
-      return httpCatalogs(requireExtensionApi().runtime.getURL(basePath)).load(name)
+      requireExtension()
+      return httpCatalogs(chrome.runtime.getURL(basePath)).load(name)
     }
   }
 }
@@ -197,12 +205,14 @@ export function chromeStorageCache(prefix = 'pq1-sdk:'): KeyValueStore {
   return {
     async get(key) {
       const k = prefix + key
-      const items = await requireExtensionApi().storage.local.get(k)
+      requireExtension()
+      const items = await chrome.storage.local.get(k)
       const value = items[k]
       return typeof value === 'string' ? value : undefined
     },
     async set(key, value) {
-      await requireExtensionApi().storage.local.set({ [prefix + key]: value })
+      requireExtension()
+      await chrome.storage.local.set({ [prefix + key]: value })
     }
   }
 }

@@ -15,6 +15,7 @@ First release.
   - Calls of up to 8192 bytes of data on firmware that reports `CAP_SIGN_USEROP_DATA_8K` (4096 on older firmware, which gets an `outdated` error instead).
   - The PQ1 wallet factory frozen for the 2026-10 audit, `0xE3dbA404dCeC30093DE26764965a51689C1607BD`.
   - `Pq1Error` with stable codes and plain-language messages.
+  - Browser globals are read as plain member chains (`navigator.hid`, `chrome.storage.local.get`, ...), so LavaMoat-style policies grant only what the SDK uses.
   - Bundlers: `pimlicoBundler`, `erc4337Bundler`.
 - `pq1-sdk-catalogs`: the catalogs of firmware commit `0313a2ef`, with a manifest and a sync script.
 - `examples/mv3-wallet`: an example Manifest V3 wallet.
